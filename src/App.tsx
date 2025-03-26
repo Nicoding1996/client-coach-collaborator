@@ -20,6 +20,9 @@ import CoachSessions from "./pages/coach/Sessions";
 import CoachMessages from "./pages/coach/Messages";
 import CoachProfile from "./pages/coach/Profile";
 import CoachInvite from "./pages/coach/Invite";
+import CoachResources from "./pages/coach/Resources";
+import CoachInvoices from "./pages/coach/Invoices";
+import CoachEngagements from "./pages/coach/Engagements";
 
 // Client pages
 import ClientDashboard from "./pages/client/Dashboard";
@@ -87,6 +90,9 @@ const App = () => {
                 <Route path="messages" element={<CoachMessages />} />
                 <Route path="profile" element={<CoachProfile />} />
                 <Route path="invite" element={<CoachInvite />} />
+                <Route path="resources" element={<CoachResources />} />
+                <Route path="invoices" element={<CoachInvoices />} />
+                <Route path="engagements" element={<CoachEngagements />} />
               </Route>
               
               {/* Client routes */}

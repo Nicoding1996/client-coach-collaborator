@@ -11,7 +11,10 @@ import {
   LogOut, 
   Menu, 
   X,
-  PlusCircle 
+  PlusCircle,
+  FileText,
+  Briefcase,
+  FolderArchive
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -45,6 +48,9 @@ const CoachLayout = () => {
     { path: "/coach/sessions", icon: Calendar, label: "Sessions" },
     { path: "/coach/messages", icon: MessageSquare, label: "Messages" },
     { path: "/coach/profile", icon: UserCircle, label: "Profile" },
+    { path: "/coach/resources", icon: FileText, label: "Resources" },
+    { path: "/coach/invoices", icon: FileText, label: "Invoices" },
+    { path: "/coach/engagements", icon: Briefcase, label: "Engagements" },
   ];
   
   const getInitials = (name: string) => {
@@ -69,13 +75,13 @@ const CoachLayout = () => {
       
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-card border-r transform ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r transform ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen`}
       >
         <div className="flex flex-col h-full px-4 py-6">
           <div className="flex items-center mb-8 px-2">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl">
+            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xl">
               C
             </div>
             <span className="ml-3 text-xl font-semibold">CoachConnect</span>
@@ -90,8 +96,8 @@ const CoachLayout = () => {
                 className={({ isActive }) => 
                   `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                     isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-foreground hover:bg-secondary"
+                      ? "bg-blue-500 text-white" 
+                      : "text-gray-700 hover:bg-gray-100"
                   }`
                 }
               >
@@ -105,8 +111,8 @@ const CoachLayout = () => {
               className={({ isActive }) => 
                 `flex items-center px-4 py-3 mt-6 text-sm font-medium rounded-lg transition-colors ${
                   isActive 
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-secondary/50 text-foreground hover:bg-secondary"
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100"
                 }`
               }
             >
@@ -129,7 +135,7 @@ const CoachLayout = () => {
             </div>
             <Button 
               variant="ghost" 
-              className="w-full justify-start px-4 py-3 mt-2 text-sm font-medium"
+              className="w-full justify-start px-4 py-3 mt-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
               onClick={handleLogout}
             >
               <LogOut className="mr-3 h-5 w-5" />
