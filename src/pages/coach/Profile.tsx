@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Camera, Check, LogOut, Building, MapPin, Globe, Mail, Phone, Calendar, Clock } from "lucide-react";
+import { Camera, Check, LogOut, Building, MapPin, Globe, Mail, Phone, Calendar, Clock, FileText, CreditCard, Users, File } from "lucide-react";
 
 const CoachProfile = () => {
   const { user, logout } = useAuth();
@@ -47,6 +47,122 @@ const CoachProfile = () => {
     { name: "Quick Check-in", duration: 15, description: "Brief follow-up on progress" }
   ];
   
+  // Resources data
+  const resources = [
+    { 
+      id: 1, 
+      title: "Leadership Assessment Framework", 
+      type: "PDF", 
+      size: "2.4 MB", 
+      dateAdded: "2023-10-15", 
+      description: "Comprehensive framework for assessing leadership capabilities and growth areas."
+    },
+    { 
+      id: 2, 
+      title: "Career Transition Workbook", 
+      type: "PDF", 
+      size: "3.8 MB", 
+      dateAdded: "2023-11-02", 
+      description: "Step-by-step guide for navigating career changes successfully."
+    },
+    { 
+      id: 3, 
+      title: "Executive Presence Workshop", 
+      type: "Video", 
+      size: "156 MB", 
+      dateAdded: "2023-12-10", 
+      description: "Video workshop on developing and enhancing executive presence."
+    },
+    { 
+      id: 4, 
+      title: "Emotional Intelligence Toolkit", 
+      type: "PDF", 
+      size: "1.5 MB", 
+      dateAdded: "2024-01-05", 
+      description: "Practical exercises and tools for improving emotional intelligence."
+    }
+  ];
+  
+  // Invoices data
+  const invoices = [
+    { 
+      id: "INV-2024-001", 
+      client: "Michael Brown", 
+      date: "2024-04-01", 
+      amount: "$450.00", 
+      status: "Paid", 
+      description: "3 coaching sessions (March 2024)" 
+    },
+    { 
+      id: "INV-2024-002", 
+      client: "Sarah Johnson", 
+      date: "2024-04-05", 
+      amount: "$600.00", 
+      status: "Pending", 
+      description: "4 coaching sessions (March 2024)" 
+    },
+    { 
+      id: "INV-2024-003", 
+      client: "David Wilson", 
+      date: "2024-04-10", 
+      amount: "$300.00", 
+      status: "Paid", 
+      description: "2 coaching sessions (March 2024)" 
+    },
+    { 
+      id: "INV-2024-004", 
+      client: "Emily Chen", 
+      date: "2024-04-15", 
+      amount: "$750.00", 
+      status: "Overdue", 
+      description: "5 coaching sessions (March 2024)" 
+    }
+  ];
+  
+  // Engagements data
+  const engagements = [
+    { 
+      id: 1, 
+      client: "Michael Brown", 
+      program: "Executive Leadership", 
+      startDate: "2024-01-15", 
+      endDate: "2024-07-15", 
+      status: "Active", 
+      progress: 45, 
+      nextSession: "2024-04-22"
+    },
+    { 
+      id: 2, 
+      client: "Sarah Johnson", 
+      program: "Career Transition", 
+      startDate: "2024-02-01", 
+      endDate: "2024-05-01", 
+      status: "Active", 
+      progress: 70, 
+      nextSession: "2024-04-25"
+    },
+    { 
+      id: 3, 
+      client: "David Wilson", 
+      program: "Leadership Development", 
+      startDate: "2023-11-10", 
+      endDate: "2024-05-10", 
+      status: "Active", 
+      progress: 85, 
+      nextSession: "2024-04-20"
+    },
+    { 
+      id: 4, 
+      client: "Emily Chen", 
+      program: "Work-Life Balance", 
+      startDate: "2024-03-15", 
+      endDate: "2024-06-15", 
+      status: "Active", 
+      progress: 25, 
+      nextSession: "2024-04-28"
+    }
+  ];
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -79,9 +195,12 @@ const CoachProfile = () => {
       </div>
       
       <Tabs defaultValue="profile" className="space-y-8">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="schedule">Availability</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsTrigger value="engagements">Engagements</TabsTrigger>
           <TabsTrigger value="settings">Account Settings</TabsTrigger>
         </TabsList>
         
@@ -373,6 +492,224 @@ const CoachProfile = () => {
                   </div>
                   <Button size="sm">Connect</Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="resources" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Coaching Resources</CardTitle>
+                  <CardDescription>Manage your coaching resources and materials</CardDescription>
+                </div>
+                <Button>
+                  <File className="mr-2 h-4 w-4" />
+                  Upload Resource
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid gap-4">
+                  {resources.map((resource) => (
+                    <div key={resource.id} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors group">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{resource.title}</h4>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                            <Badge variant="outline" className="rounded-sm">{resource.type}</Badge>
+                            <span>{resource.size}</span>
+                            <span>•</span>
+                            <span>Added {resource.dateAdded}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{resource.description}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="sm">
+                          Share
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          Download
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {resources.length === 0 && (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No resources yet</h3>
+                    <p className="text-muted-foreground mb-4">Upload coaching materials to share with your clients.</p>
+                    <Button>Upload Resource</Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="invoices" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Invoices</CardTitle>
+                  <CardDescription>Manage your billing and payments</CardDescription>
+                </div>
+                <Button>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Create Invoice
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="rounded-md border">
+                  <div className="w-full overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="h-12 px-4 text-left font-medium">Invoice</th>
+                          <th className="h-12 px-4 text-left font-medium">Client</th>
+                          <th className="h-12 px-4 text-left font-medium">Date</th>
+                          <th className="h-12 px-4 text-left font-medium">Amount</th>
+                          <th className="h-12 px-4 text-left font-medium">Status</th>
+                          <th className="h-12 px-4 text-left font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoices.map((invoice) => (
+                          <tr key={invoice.id} className="border-b transition-colors hover:bg-muted/50">
+                            <td className="p-4 align-middle font-medium">{invoice.id}</td>
+                            <td className="p-4 align-middle">{invoice.client}</td>
+                            <td className="p-4 align-middle">{invoice.date}</td>
+                            <td className="p-4 align-middle">{invoice.amount}</td>
+                            <td className="p-4 align-middle">
+                              <Badge 
+                                variant={
+                                  invoice.status === "Paid" ? "success" : 
+                                  invoice.status === "Pending" ? "outline" : 
+                                  "destructive"
+                                }
+                              >
+                                {invoice.status}
+                              </Badge>
+                            </td>
+                            <td className="p-4 align-middle">
+                              <div className="flex space-x-2">
+                                <Button variant="ghost" size="sm">View</Button>
+                                <Button variant="ghost" size="sm">Send</Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {invoices.length === 0 && (
+                  <div className="text-center py-12">
+                    <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No invoices yet</h3>
+                    <p className="text-muted-foreground mb-4">Create your first invoice to bill a client.</p>
+                    <Button>Create Invoice</Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="engagements" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Client Engagements</CardTitle>
+                  <CardDescription>Manage your coaching programs and client progress</CardDescription>
+                </div>
+                <Button>
+                  <Users className="mr-2 h-4 w-4" />
+                  New Engagement
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid gap-4">
+                  {engagements.map((engagement) => (
+                    <Card key={engagement.id} className="overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="p-6">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="text-lg font-semibold">{engagement.client}</h3>
+                              <p className="text-sm text-muted-foreground">{engagement.program}</p>
+                            </div>
+                            <Badge
+                              variant={
+                                engagement.status === "Active" ? "outline" :
+                                engagement.status === "Completed" ? "success" :
+                                "secondary"
+                              }
+                            >
+                              {engagement.status}
+                            </Badge>
+                          </div>
+                          
+                          <div className="mt-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm text-muted-foreground">Progress</span>
+                              <span className="text-sm font-medium">{engagement.progress}%</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-primary rounded-full" 
+                                style={{ width: `${engagement.progress}%` }} 
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Start Date</p>
+                              <p className="font-medium">{engagement.startDate}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">End Date</p>
+                              <p className="font-medium">{engagement.endDate}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 pt-4 border-t">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
+                                <span className="text-sm">Next Session: {engagement.nextSession}</span>
+                              </div>
+                              <Button variant="outline" size="sm">View Details</Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {engagements.length === 0 && (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No active engagements</h3>
+                    <p className="text-muted-foreground mb-4">Start a new coaching program with a client.</p>
+                    <Button>New Engagement</Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
