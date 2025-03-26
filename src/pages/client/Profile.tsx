@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Camera, Check, LogOut, MapPin, Mail, Phone, Target, Calendar, FileText } from "lucide-react";
+import { userAPI } from "@/lib/api";
 
 // Mock data
 const goals = [
@@ -73,6 +73,8 @@ const assessments = [
 const ClientProfile = () => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -96,6 +98,35 @@ const ClientProfile = () => {
   const handleSaveProfile = () => {
     setIsEditing(false);
     toast.success("Profile updated successfully");
+    // In a real implementation, you would call your API here
+    // userAPI.updateProfile(formData);
+  };
+  
+  const handleAvatarClick = () => {
+    if (isEditing && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    try {
+      setIsUploading(true);
+      // Call your API to upload the avatar
+      await userAPI.updateAvatar(file);
+      toast.success("Profile photo updated successfully");
+      // Refresh user data or update local state
+      // This would typically involve updating the global user state
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast.error("Failed to update profile photo");
+    } finally {
+      setIsUploading(false);
+    }
   };
   
   const getInitials = (name: string) => {
@@ -149,14 +180,33 @@ const ClientProfile = () => {
               <div className="flex flex-col md:flex-row gap-8">
                 <div className="flex flex-col items-center">
                   <div className="relative">
-                    <Avatar className="h-32 w-32">
+                    <Avatar className={`h-32 w-32 ${isEditing ? 'cursor-pointer' : ''}`} onClick={handleAvatarClick}>
                       <AvatarImage src={user?.avatar} alt={user?.name} />
                       <AvatarFallback className="text-3xl">{user?.name ? getInitials(user.name) : "C"}</AvatarFallback>
                     </Avatar>
                     {isEditing && (
-                      <Button variant="outline" size="icon" className="absolute bottom-0 right-0 rounded-full h-8 w-8">
-                        <Camera className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="absolute bottom-0 right-0 rounded-full h-8 w-8"
+                          onClick={handleAvatarClick}
+                          disabled={isUploading}
+                        >
+                          {isUploading ? (
+                            <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Camera className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
                     )}
                   </div>
                   

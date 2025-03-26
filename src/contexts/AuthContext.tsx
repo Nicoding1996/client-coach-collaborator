@@ -1,9 +1,9 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'sonner';
+import { authAPI } from '@/services/api';
 
 interface User {
-  id: string;
+  _id: string;
   email: string;
   name: string;
   role: 'coach' | 'client';
@@ -40,139 +40,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check local storage for authenticated user
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error('Error parsing stored user:', err);
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
-  // Mock login function - in a real app this would make an API call
+  // Real login function using API
   const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock authentication logic - this is just for demo
-      // In a real app, this would validate with a backend
-      if (email === 'coach@example.com' && password === 'password') {
-        const mockUser: User = {
-          id: '1',
-          email: 'coach@example.com',
-          name: 'John Coach',
-          role: 'coach',
-          avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        toast.success('Logged in successfully');
-        return;
-      } 
-      
-      if (email === 'client@example.com' && password === 'password') {
-        const mockUser: User = {
-          id: '2',
-          email: 'client@example.com',
-          name: 'Jane Client',
-          role: 'client',
-          avatar: 'https://randomuser.me/api/portraits/women/44.jpg'
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        toast.success('Logged in successfully');
-        return;
-      }
-      
-      throw new Error('Invalid email or password');
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-        toast.error(err.message);
-      } else {
-        setError('An unknown error occurred');
-        toast.error('An unknown error occurred');
-      }
+      const userData = await authAPI.login({ email, password });
+      setUser(userData);
+      toast.success('Logged in successfully');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock register function
+  // Real register function using API
   const register = async (email: string, password: string, name: string, role: 'coach' | 'client') => {
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock registration logic
-      const mockUser: User = {
-        id: Math.random().toString(36).substring(2, 9),
-        email,
-        name,
-        role
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      const userData = await authAPI.register({ email, password, name, role });
+      setUser(userData);
       toast.success('Account created successfully');
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-        toast.error(err.message);
-      } else {
-        setError('An unknown error occurred');
-        toast.error('An unknown error occurred');
-      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
   
-  // Register with invite
+  // Register with invite (this is more complex and would need an invite API)
   const registerWithInvite = async (email: string, password: string, name: string, inviteId: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // This would need to be implemented with an invite system API
+      // For now, just register as a client
+      const userData = await authAPI.register({ 
+        email, 
+        password, 
+        name, 
+        role: 'client',
+      });
       
-      // Mock invitation validation
-      if (!inviteId) {
-        throw new Error('Invalid invitation link');
-      }
-      
-      const mockUser: User = {
-        id: Math.random().toString(36).substring(2, 9),
-        email,
-        name,
-        role: 'client'
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      setUser(userData);
       toast.success('Account created successfully');
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-        toast.error(err.message);
-      } else {
-        setError('An unknown error occurred');
-        toast.error('An unknown error occurred');
-      }
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
   const logout = () => {
+    authAPI.logout();
     setUser(null);
-    localStorage.removeItem('user');
     toast.success('Logged out successfully');
   };
 

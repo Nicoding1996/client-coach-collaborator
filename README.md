@@ -1,4 +1,105 @@
-# Welcome to your Lovable project
+# Coaching Portal 2.0
+
+A modern coaching platform for coaches and clients to manage their coaching relationships, sessions, and resources.
+
+## Features
+
+- User authentication (coach and client roles)
+- Profile management with avatar upload
+- Dashboard for coaches and clients
+- Session scheduling and management
+- Client management for coaches
+- Resource sharing
+- Messaging system
+- Invoicing and payment tracking
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or later)
+- MongoDB Atlas account (or local MongoDB instance)
+
+### Installation
+
+1. Clone the repository
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Edit the `.env` file and update your MongoDB connection string:
+
+```
+MONGODB_URI=mongodb+srv://CoachingPortal:<YOUR_PASSWORD>@coachportallogin.ewzgoxe.mongodb.net/?retryWrites=true&w=majority&appName=CoachPortalLogin
+JWT_SECRET=your_jwt_secret_key_here
+PORT=5000
+NODE_ENV=development
+```
+
+Replace `<YOUR_PASSWORD>` with your actual MongoDB password.
+
+### Running the Application
+
+Run both frontend and backend concurrently:
+
+```bash
+npm run dev:full
+```
+
+Or run them separately:
+
+- Frontend only: `npm run dev`
+- Backend only: `npm run dev:server`
+
+### Building for Production
+
+```bash
+npm run build
+npm run server
+```
+
+## Project Structure
+
+- `/src` - Frontend React application
+  - `/components` - UI components
+  - `/contexts` - Context providers including authentication
+  - `/hooks` - Custom React hooks
+  - `/lib` - Utilities and API services
+  - `/pages` - Page components
+
+- `/server` - Backend Node.js API
+  - `/config` - Configuration files
+  - `/controllers` - Request handlers
+  - `/middleware` - Express middleware
+  - `/models` - MongoDB schema models
+  - `/routes` - API routes
+
+## Technologies
+
+- Frontend:
+  - React
+  - TypeScript
+  - Shadcn UI
+  - React Router
+  - React Query
+  - Axios
+
+- Backend:
+  - Node.js
+  - Express
+  - MongoDB
+  - Mongoose
+  - JWT Authentication
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## Project info
 
