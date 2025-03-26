@@ -272,6 +272,389 @@ const CoachEngagements = () => {
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
             <TabsTrigger value="completed">Completed</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="all" className="mt-6 space-y-6">
+            {filteredEngagements.length === 0 ? (
+              <div className="text-center py-12">
+                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No engagements found</h3>
+                <p className="text-muted-foreground mt-1">
+                  Try adjusting your search or create a new engagement
+                </p>
+                <Button className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Engagement
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6">
+                {filteredEngagements.map((engagement) => (
+                  <Card key={engagement.id} className="hover:shadow-md transition">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <Badge className="mb-2">{engagement.type}</Badge>
+                              <h3 className="text-xl font-semibold">{engagement.title}</h3>
+                            </div>
+                            {getStatusBadge(engagement.status)}
+                          </div>
+                          
+                          <div className="flex items-center mt-4">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage src={engagement.clientAvatar} alt={engagement.client} />
+                              <AvatarFallback>{getInitials(engagement.client)}</AvatarFallback>
+                            </Avatar>
+                            <div className="ml-3">
+                              <p className="font-medium">{engagement.client}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(engagement.startDate)} - {formatDate(engagement.endDate)}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span>Progress</span>
+                              <span>{engagement.progress}%</span>
+                            </div>
+                            <Progress value={engagement.progress} className="h-2" />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4 mt-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Sessions</p>
+                              <p className="font-medium">{engagement.sessionsCompleted}/{engagement.sessions}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Value</p>
+                              <p className="font-medium">${engagement.value.toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="lg:w-1/3 lg:border-l lg:pl-6 flex flex-col justify-between">
+                          {engagement.nextSession ? (
+                            <div>
+                              <p className="text-sm font-medium">Next Session</p>
+                              <div className="flex items-center mt-2">
+                                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                                <p className="text-sm">{formatNextSession(engagement.nextSession)}</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-sm font-medium">Completed</p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                All {engagement.sessions} sessions completed
+                              </p>
+                            </div>
+                          )}
+                          
+                          <div className="flex flex-col gap-2 mt-4 lg:mt-0">
+                            <Button className="text-sm justify-between">
+                              View Details <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            {engagement.status === "active" && (
+                              <Button variant="outline" className="text-sm justify-between">
+                                Schedule Session <Calendar className="h-4 w-4 ml-2" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="active" className="mt-6 space-y-6">
+            {filteredEngagements.filter(e => e.status === "active").length === 0 ? (
+              <div className="text-center py-12">
+                <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No active engagements</h3>
+                <p className="text-muted-foreground mt-1">
+                  Create a new engagement to get started
+                </p>
+                <Button className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Engagement
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6">
+                {filteredEngagements
+                  .filter(e => e.status === "active")
+                  .map((engagement) => (
+                    <Card key={engagement.id} className="hover:shadow-md transition">
+                      <CardContent className="p-6">
+                        {/* Same content as in the "all" tab */}
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <Badge className="mb-2">{engagement.type}</Badge>
+                                <h3 className="text-xl font-semibold">{engagement.title}</h3>
+                              </div>
+                              {getStatusBadge(engagement.status)}
+                            </div>
+                            
+                            <div className="flex items-center mt-4">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={engagement.clientAvatar} alt={engagement.client} />
+                                <AvatarFallback>{getInitials(engagement.client)}</AvatarFallback>
+                              </Avatar>
+                              <div className="ml-3">
+                                <p className="font-medium">{engagement.client}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(engagement.startDate)} - {formatDate(engagement.endDate)}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4">
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Progress</span>
+                                <span>{engagement.progress}%</span>
+                              </div>
+                              <Progress value={engagement.progress} className="h-2" />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Sessions</p>
+                                <p className="font-medium">{engagement.sessionsCompleted}/{engagement.sessions}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Value</p>
+                                <p className="font-medium">${engagement.value.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="lg:w-1/3 lg:border-l lg:pl-6 flex flex-col justify-between">
+                            {engagement.nextSession ? (
+                              <div>
+                                <p className="text-sm font-medium">Next Session</p>
+                                <div className="flex items-center mt-2">
+                                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                                  <p className="text-sm">{formatNextSession(engagement.nextSession)}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-medium">Completed</p>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  All {engagement.sessions} sessions completed
+                                </p>
+                              </div>
+                            )}
+                            
+                            <div className="flex flex-col gap-2 mt-4 lg:mt-0">
+                              <Button className="text-sm justify-between">
+                                View Details <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              {engagement.status === "active" && (
+                                <Button variant="outline" className="text-sm justify-between">
+                                  Schedule Session <Calendar className="h-4 w-4 ml-2" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="upcoming" className="mt-6 space-y-6">
+            {filteredEngagements.filter(e => e.status === "upcoming").length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No upcoming engagements</h3>
+                <p className="text-muted-foreground mt-1">
+                  All engagements are either active or completed
+                </p>
+                <Button className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Schedule New Engagement
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6">
+                {filteredEngagements
+                  .filter(e => e.status === "upcoming")
+                  .map((engagement) => (
+                    <Card key={engagement.id} className="hover:shadow-md transition">
+                      <CardContent className="p-6">
+                        {/* Same content as in the "all" tab */}
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <Badge className="mb-2">{engagement.type}</Badge>
+                                <h3 className="text-xl font-semibold">{engagement.title}</h3>
+                              </div>
+                              {getStatusBadge(engagement.status)}
+                            </div>
+                            
+                            <div className="flex items-center mt-4">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={engagement.clientAvatar} alt={engagement.client} />
+                                <AvatarFallback>{getInitials(engagement.client)}</AvatarFallback>
+                              </Avatar>
+                              <div className="ml-3">
+                                <p className="font-medium">{engagement.client}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(engagement.startDate)} - {formatDate(engagement.endDate)}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4">
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Progress</span>
+                                <span>{engagement.progress}%</span>
+                              </div>
+                              <Progress value={engagement.progress} className="h-2" />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Sessions</p>
+                                <p className="font-medium">{engagement.sessionsCompleted}/{engagement.sessions}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Value</p>
+                                <p className="font-medium">${engagement.value.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="lg:w-1/3 lg:border-l lg:pl-6 flex flex-col justify-between">
+                            {engagement.nextSession ? (
+                              <div>
+                                <p className="text-sm font-medium">Next Session</p>
+                                <div className="flex items-center mt-2">
+                                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                                  <p className="text-sm">{formatNextSession(engagement.nextSession)}</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-medium">Completed</p>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  All {engagement.sessions} sessions completed
+                                </p>
+                              </div>
+                            )}
+                            
+                            <div className="flex flex-col gap-2 mt-4 lg:mt-0">
+                              <Button className="text-sm justify-between">
+                                View Details <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" className="text-sm justify-between">
+                                Schedule First Session <Calendar className="h-4 w-4 ml-2" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="completed" className="mt-6 space-y-6">
+            {filteredEngagements.filter(e => e.status === "completed").length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                <h3 className="mt-4 text-lg font-medium">No completed engagements</h3>
+                <p className="text-muted-foreground mt-1">
+                  You have no completed engagements yet
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6">
+                {filteredEngagements
+                  .filter(e => e.status === "completed")
+                  .map((engagement) => (
+                    <Card key={engagement.id} className="hover:shadow-md transition">
+                      <CardContent className="p-6">
+                        {/* Same content as in the "all" tab */}
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <Badge className="mb-2">{engagement.type}</Badge>
+                                <h3 className="text-xl font-semibold">{engagement.title}</h3>
+                              </div>
+                              {getStatusBadge(engagement.status)}
+                            </div>
+                            
+                            <div className="flex items-center mt-4">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={engagement.clientAvatar} alt={engagement.client} />
+                                <AvatarFallback>{getInitials(engagement.client)}</AvatarFallback>
+                              </Avatar>
+                              <div className="ml-3">
+                                <p className="font-medium">{engagement.client}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(engagement.startDate)} - {formatDate(engagement.endDate)}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="mt-4">
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Progress</span>
+                                <span>{engagement.progress}%</span>
+                              </div>
+                              <Progress value={engagement.progress} className="h-2" />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mt-4">
+                              <div>
+                                <p className="text-sm text-muted-foreground">Sessions</p>
+                                <p className="font-medium">{engagement.sessionsCompleted}/{engagement.sessions}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Value</p>
+                                <p className="font-medium">${engagement.value.toLocaleString()}</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="lg:w-1/3 lg:border-l lg:pl-6 flex flex-col justify-between">
+                            <div>
+                              <p className="text-sm font-medium">Completed</p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                All {engagement.sessions} sessions completed
+                              </p>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2 mt-4 lg:mt-0">
+                              <Button className="text-sm justify-between">
+                                View Summary <ChevronRight className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" className="text-sm justify-between">
+                                Create Similar <Plus className="h-4 w-4 ml-2" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
         
         <div className="relative w-full md:w-auto">
@@ -284,104 +667,6 @@ const CoachEngagements = () => {
           />
         </div>
       </div>
-      
-      <TabsContent value="all" className="mt-0 space-y-6">
-        {filteredEngagements.length === 0 ? (
-          <div className="text-center py-12">
-            <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
-            <h3 className="mt-4 text-lg font-medium">No engagements found</h3>
-            <p className="text-muted-foreground mt-1">
-              Try adjusting your search or create a new engagement
-            </p>
-            <Button className="mt-4">
-              <Plus className="mr-2 h-4 w-4" />
-              New Engagement
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {filteredEngagements.map((engagement) => (
-              <Card key={engagement.id} className="hover:shadow-md transition">
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row gap-6">
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <Badge className="mb-2">{engagement.type}</Badge>
-                          <h3 className="text-xl font-semibold">{engagement.title}</h3>
-                        </div>
-                        {getStatusBadge(engagement.status)}
-                      </div>
-                      
-                      <div className="flex items-center mt-4">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={engagement.clientAvatar} alt={engagement.client} />
-                          <AvatarFallback>{getInitials(engagement.client)}</AvatarFallback>
-                        </Avatar>
-                        <div className="ml-3">
-                          <p className="font-medium">{engagement.client}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatDate(engagement.startDate)} - {formatDate(engagement.endDate)}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-4">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Progress</span>
-                          <span>{engagement.progress}%</span>
-                        </div>
-                        <Progress value={engagement.progress} className="h-2" />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Sessions</p>
-                          <p className="font-medium">{engagement.sessionsCompleted}/{engagement.sessions}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Value</p>
-                          <p className="font-medium">${engagement.value.toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="lg:w-1/3 lg:border-l lg:pl-6 flex flex-col justify-between">
-                      {engagement.nextSession ? (
-                        <div>
-                          <p className="text-sm font-medium">Next Session</p>
-                          <div className="flex items-center mt-2">
-                            <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                            <p className="text-sm">{formatNextSession(engagement.nextSession)}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-sm font-medium">Completed</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            All {engagement.sessions} sessions completed
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="flex flex-col gap-2 mt-4 lg:mt-0">
-                        <Button className="text-sm justify-between">
-                          View Details <ChevronRight className="h-4 w-4" />
-                        </Button>
-                        {engagement.status === "active" && (
-                          <Button variant="outline" className="text-sm justify-between">
-                            Schedule Session <Calendar className="h-4 w-4 ml-2" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </TabsContent>
     </div>
   );
 };

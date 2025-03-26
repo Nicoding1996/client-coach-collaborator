@@ -127,6 +127,362 @@ const CoachInvoices = () => {
             <TabsTrigger value="paid">Paid</TabsTrigger>
             <TabsTrigger value="overdue">Overdue</TabsTrigger>
           </TabsList>
+        
+          <TabsContent value="all" className="space-y-6 mt-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Invoice Summary</CardTitle>
+                <CardDescription>Overview of your invoicing status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">Total Outstanding</p>
+                    <h3 className="text-2xl font-bold mt-1">$875.00</h3>
+                    <p className="text-xs text-muted-foreground mt-1">3 invoices</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">Overdue</p>
+                    <h3 className="text-2xl font-bold mt-1 text-destructive">$600.00</h3>
+                    <p className="text-xs text-muted-foreground mt-1">1 invoice</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">Paid (Last 30 days)</p>
+                    <h3 className="text-2xl font-bold mt-1 text-green-600">$800.00</h3>
+                    <p className="text-xs text-muted-foreground mt-1">2 invoices</p>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm font-medium text-muted-foreground">Draft</p>
+                    <h3 className="text-2xl font-bold mt-1">$200.00</h3>
+                    <p className="text-xs text-muted-foreground mt-1">1 invoice</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-center">
+                  <CardTitle>Invoices</CardTitle>
+                  <Button variant="outline" size="sm">
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Export
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {filteredInvoices.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">No invoices found</h3>
+                    <p className="text-muted-foreground mt-1">
+                      Try adjusting your search or create a new invoice
+                    </p>
+                    <Button className="mt-4">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Invoice
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">
+                            <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
+                              Invoice
+                              <ArrowUpDown className="ml-2 h-3 w-3" />
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
+                              Client
+                              <ArrowUpDown className="ml-2 h-3 w-3" />
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
+                              Amount
+                              <ArrowUpDown className="ml-2 h-3 w-3" />
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
+                              Date
+                              <ArrowUpDown className="ml-2 h-3 w-3" />
+                            </Button>
+                          </TableHead>
+                          <TableHead>
+                            <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
+                              Due Date
+                              <ArrowUpDown className="ml-2 h-3 w-3" />
+                            </Button>
+                          </TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvoices.map((invoice) => (
+                          <TableRow key={invoice.id}>
+                            <TableCell className="font-medium">{invoice.id}</TableCell>
+                            <TableCell>{invoice.client}</TableCell>
+                            <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                            <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                            <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                            <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                {invoice.status === "pending" && (
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-blue-500">
+                                    <CreditCard className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="draft" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                {filteredInvoices.filter(i => i.status === "draft").length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">No draft invoices</h3>
+                    <p className="text-muted-foreground mt-1">
+                      Create a draft invoice to get started
+                    </p>
+                    <Button className="mt-4">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Draft
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Invoice</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvoices
+                          .filter(i => i.status === "draft")
+                          .map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.id}</TableCell>
+                              <TableCell>{invoice.client}</TableCell>
+                              <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                              <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                              <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm">Edit</Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="pending" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                {filteredInvoices.filter(i => i.status === "pending").length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">No pending invoices</h3>
+                    <p className="text-muted-foreground mt-1">
+                      All invoices have been paid or are in draft status
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Invoice</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvoices
+                          .filter(i => i.status === "pending")
+                          .map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.id}</TableCell>
+                              <TableCell>{invoice.client}</TableCell>
+                              <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                              <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                              <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm">
+                                    <CreditCard className="mr-2 h-4 w-4" />
+                                    Record Payment
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="paid" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                {filteredInvoices.filter(i => i.status === "paid").length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">No paid invoices</h3>
+                    <p className="text-muted-foreground mt-1">
+                      No payments have been recorded yet
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Invoice</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvoices
+                          .filter(i => i.status === "paid")
+                          .map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.id}</TableCell>
+                              <TableCell>{invoice.client}</TableCell>
+                              <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                              <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                              <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="overdue" className="mt-6">
+            <Card>
+              <CardContent className="p-6">
+                {filteredInvoices.filter(i => i.status === "overdue").length === 0 ? (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-medium">No overdue invoices</h3>
+                    <p className="text-muted-foreground mt-1">
+                      All invoices are paid or within due date
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Invoice</TableHead>
+                          <TableHead>Client</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Due Date</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredInvoices
+                          .filter(i => i.status === "overdue")
+                          .map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.id}</TableCell>
+                              <TableCell>{invoice.client}</TableCell>
+                              <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                              <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
+                              <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="sm">
+                                    <CreditCard className="mr-2 h-4 w-4" />
+                                    Record Payment
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
         
         <div className="flex gap-2">
@@ -144,134 +500,6 @@ const CoachInvoices = () => {
           </Button>
         </div>
       </div>
-      
-      <TabsContent value="all" className="space-y-6 mt-0">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Invoice Summary</CardTitle>
-            <CardDescription>Overview of your invoicing status</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground">Total Outstanding</p>
-                <h3 className="text-2xl font-bold mt-1">$875.00</h3>
-                <p className="text-xs text-muted-foreground mt-1">3 invoices</p>
-              </div>
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <h3 className="text-2xl font-bold mt-1 text-destructive">$600.00</h3>
-                <p className="text-xs text-muted-foreground mt-1">1 invoice</p>
-              </div>
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground">Paid (Last 30 days)</p>
-                <h3 className="text-2xl font-bold mt-1 text-green-600">$800.00</h3>
-                <p className="text-xs text-muted-foreground mt-1">2 invoices</p>
-              </div>
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm font-medium text-muted-foreground">Draft</p>
-                <h3 className="text-2xl font-bold mt-1">$200.00</h3>
-                <p className="text-xs text-muted-foreground mt-1">1 invoice</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex justify-between items-center">
-              <CardTitle>Invoices</CardTitle>
-              <Button variant="outline" size="sm">
-                <FileDown className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredInvoices.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">No invoices found</h3>
-                <p className="text-muted-foreground mt-1">
-                  Try adjusting your search or create a new invoice
-                </p>
-                <Button className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Invoice
-                </Button>
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">
-                        <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
-                          Invoice
-                          <ArrowUpDown className="ml-2 h-3 w-3" />
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
-                          Client
-                          <ArrowUpDown className="ml-2 h-3 w-3" />
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
-                          Amount
-                          <ArrowUpDown className="ml-2 h-3 w-3" />
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
-                          Date
-                          <ArrowUpDown className="ml-2 h-3 w-3" />
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium flex items-center">
-                          Due Date
-                          <ArrowUpDown className="ml-2 h-3 w-3" />
-                        </Button>
-                      </TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                        <TableCell>{invoice.client}</TableCell>
-                        <TableCell>${invoice.amount.toFixed(2)}</TableCell>
-                        <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
-                        <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            {invoice.status === "pending" && (
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-blue-500">
-                                <CreditCard className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </TabsContent>
     </div>
   );
 };
