@@ -30,6 +30,9 @@ import ClientCoaches from "./pages/client/Coaches";
 import ClientSessions from "./pages/client/Sessions";
 import ClientMessages from "./pages/client/Messages";
 import ClientProfile from "./pages/client/Profile";
+import ClientResources from "./pages/client/Resources";
+import ClientInvoices from "./pages/client/Invoices";
+import ClientEngagements from "./pages/client/Engagements";
 
 // Auth context and protected routes
 import { AuthProvider } from "./contexts/AuthContext";
@@ -106,6 +109,9 @@ const App = () => {
                 <Route path="sessions" element={<ClientSessions />} />
                 <Route path="messages" element={<ClientMessages />} />
                 <Route path="profile" element={<ClientProfile />} />
+                <Route path="resources" element={<ClientResources />} />
+                <Route path="invoices" element={<ClientInvoices />} />
+                <Route path="engagements" element={<ClientEngagements />} />
               </Route>
               
               {/* Catch-all */}

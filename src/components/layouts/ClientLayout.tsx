@@ -10,7 +10,10 @@ import {
   UserCircle, 
   LogOut, 
   Menu, 
-  X 
+  X,
+  FileText,
+  Briefcase,
+  Receipt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -42,6 +45,9 @@ const ClientLayout = () => {
     { path: "/client/coaches", icon: Users, label: "My Coaches" },
     { path: "/client/sessions", icon: Calendar, label: "Sessions" },
     { path: "/client/messages", icon: MessageSquare, label: "Messages" },
+    { path: "/client/resources", icon: FileText, label: "Resources" },
+    { path: "/client/invoices", icon: Receipt, label: "Invoices" },
+    { path: "/client/engagements", icon: Briefcase, label: "Engagements" },
     { path: "/client/profile", icon: UserCircle, label: "Profile" },
   ];
   
