@@ -44,13 +44,13 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 // API Routes
 app.use('/api/users', userRoutes);
 
-// Serve static files in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../dist/index.html'));
-  });
-}
+// Serve static files from dist directory
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Handle all other routes by serving index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../dist/index.html'));
+});
 
 // Error handling
 app.use(errorHandler);
