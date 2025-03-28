@@ -158,29 +158,44 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/profile/avatar
 // @access  Private
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
-
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
-
-  if (!req.file) {
-    res.status(400);
-    throw new Error('Please upload a file');
-  }
-
-  // Get the file path to save in database
-  const avatar = `/uploads/${req.file.filename}`;
+  console.log('updateUserAvatar controller started');
   
-  user.avatar = avatar;
-  await user.save();
+  try {
+    const user = await User.findById(req.user._id);
+    console.log('User found:', !!user);
 
-  res.json({
-    _id: user._id,
-    avatar: user.avatar,
-    message: 'Avatar updated successfully',
-  });
+    if (!user) {
+      console.log('User not found');
+      res.status(404);
+      throw new Error('User not found');
+    }
+
+    if (!req.file) {
+      console.log('No file in request');
+      res.status(400);
+      throw new Error('Please upload a file');
+    }
+
+    console.log('File received:', req.file);
+    
+    // Get the file path to save in database
+    const avatar = `/uploads/${req.file.filename}`;
+    console.log('Avatar path:', avatar);
+    
+    user.avatar = avatar;
+    console.log('Saving user with new avatar');
+    await user.save();
+    console.log('User saved successfully');
+
+    res.json({
+      _id: user._id,
+      avatar: user.avatar,
+      message: 'Avatar updated successfully',
+    });
+  } catch (error) {
+    console.error('Error in updateUserAvatar:', error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 export {

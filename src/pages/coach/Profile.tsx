@@ -18,6 +18,8 @@ const CoachProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingInitialData, setIsLoadingInitialData] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
@@ -170,7 +172,7 @@ const CoachProfile = () => {
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        setIsLoading(true);
+        setIsLoadingInitialData(true);
 
         // Try to fetch profile from API
         try {
@@ -216,13 +218,13 @@ const CoachProfile = () => {
           }
         }
       } finally {
-        setIsLoading(false);
+        setIsLoadingInitialData(false);
       }
     };
 
     fetchProfileData();
   }, [user]);
-  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -231,12 +233,16 @@ const CoachProfile = () => {
     });
   };
   
-  const handleSaveProfile = async (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent default form submission behavior that causes page refresh
+  const handleSaveProfile = async (e: React.MouseEvent<HTMLButtonElement> | React.FormEvent) => {
+    // Prevent default behavior that could cause page refresh
     e.preventDefault();
+    if (e.currentTarget) {
+      e.stopPropagation();
+    }
     
     try {
-      setIsLoading(true);
+      // Use isSaving state specifically for save operations
+      setIsSaving(true);
 
       // Log the profile data we're sending
       console.log("Saving profile data:", formData);
@@ -261,7 +267,7 @@ const CoachProfile = () => {
         }
       }
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
   
@@ -276,16 +282,72 @@ const CoachProfile = () => {
     if (!files || files.length === 0) return;
     
     const file = files[0];
+    console.log('Selected file for upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+    
+    // Validate file type and size client-side before attempting upload
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    
+    // Check file type
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please select a valid image file (JPEG, PNG, or GIF)");
+      return;
+    }
+    
+    // Max size 1MB (same as server) - convert to more understandable message
+    const MAX_SIZE = 1000000; // 1MB in bytes
+    if (file.size > MAX_SIZE) {
+      const sizeMB = (file.size / 1000000).toFixed(2);
+      toast.error(`File is too large (${sizeMB}MB). Maximum size is 1MB. Please resize your image.`);
+      return;
+    }
     
     try {
       setIsUploading(true);
+      
+      // Create a FormData object for the file upload
       const formData = new FormData();
       formData.append('avatar', file);
-      await authAPI.updateAvatar(formData);
-      toast.success("Profile photo updated successfully");
+      
+      console.log('Uploading avatar file');
+      
+      // Set a longer timeout for avatar uploads specifically
+      const response = await authAPI.updateAvatar(formData);
+      console.log('Avatar upload response:', response);
+      
+      if (response && response.avatar) {
+        // Update user context with the new avatar URL
+        if (user) {
+          const updatedUserData = { 
+            ...user, 
+            avatar: response.avatar 
+          };
+          
+          // Update localStorage
+          localStorage.setItem('user', JSON.stringify(updatedUserData));
+          
+          // Force refresh the avatar image by triggering a state update
+          // This ensures the UI shows the new avatar immediately
+          const avatarElem = document.querySelector('.avatar-image') as HTMLImageElement;
+          if (avatarElem) {
+            // Add cache-busting parameter
+            avatarElem.src = `${response.avatar}?t=${new Date().getTime()}`;
+          }
+        }
+        
+        toast.success("Profile photo updated successfully");
+      } else {
+        console.error('Invalid avatar response:', response);
+        toast.error("Unexpected response from server. Avatar may not be updated.");
+      }
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      toast.error("Failed to update profile photo");
+      if (error.code === 'ECONNABORTED') {
+        toast.error("Avatar upload timed out. Please try a smaller image or check your internet connection.");
+      } else if (!navigator.onLine) {
+        toast.error("You're offline. Please check your internet connection.");
+      } else {
+        toast.error("Failed to update profile photo. Please try again.");
+      }
     } finally {
       setIsUploading(false);
     }
@@ -325,12 +387,32 @@ const CoachProfile = () => {
               <div className="absolute right-6 top-6">
                 {isEditing ? (
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                    <Button 
+                      variant="outline" 
+                      type="button" 
+                      onClick={() => setIsEditing(false)}
+                    >
                       Cancel
                     </Button>
-                    <Button type="button" onClick={handleSaveProfile}>
-                      <Check className="mr-2 h-4 w-4" />
-                      Save
+                    <Button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSaveProfile(e);
+                      }}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="mr-2 h-4 w-4" />
+                          Save
+                        </>
+                      )}
                     </Button>
                   </div>
                 ) : (
@@ -345,32 +427,36 @@ const CoachProfile = () => {
                 <div className="flex flex-col items-center">
                   <div className="relative">
                     <Avatar className={`h-32 w-32 ${isEditing ? 'cursor-pointer' : ''}`} onClick={handleAvatarClick}>
-                      <AvatarImage src={user?.avatar} alt={user?.name} />
+                      <AvatarImage 
+                        src={user?.avatar} 
+                        alt={user?.name} 
+                        className="avatar-image"
+                      />
                       <AvatarFallback className="text-3xl">{user?.name ? getInitials(user.name) : "C"}</AvatarFallback>
                     </Avatar>
                     {isEditing && (
-                      <>
-                        <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleAvatarChange}
-                        />
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          className="absolute bottom-0 right-0 rounded-full h-8 w-8"
-                          onClick={handleAvatarClick}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? (
-                            <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <Camera className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </>
+                    <>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="absolute bottom-0 right-0 rounded-full h-8 w-8"
+                        onClick={handleAvatarClick}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? (
+                          <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </>
                     )}
                   </div>
                   
@@ -550,10 +636,10 @@ const CoachProfile = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {availabilitySchedule.map((schedule, index) => (
                     <div key={index} className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium">{schedule.day}</span>
-                      </div>
+                        </div>
                       <span className={schedule.hours === "Not Available" ? "text-muted-foreground" : ""}>
                         {schedule.hours}
                       </span>
@@ -576,8 +662,8 @@ const CoachProfile = () => {
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-medium">{session.name}</h4>
                             <div className="flex items-center">
-                              <Clock className="h-4 w-4 text-muted-foreground mr-1" />
-                              <span className="text-sm">{session.duration} min</span>
+                            <Clock className="h-4 w-4 text-muted-foreground mr-1" />
+                            <span className="text-sm">{session.duration} min</span>
                             </div>
                           </div>
                           <p className="text-sm text-muted-foreground">{session.description}</p>
