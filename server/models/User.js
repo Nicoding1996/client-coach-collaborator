@@ -49,6 +49,14 @@ const userSchema = mongoose.Schema(
       type: String,
       default: '',
     },
+    specialties: {
+      type: String,
+      default: '',
+    },
+    certifications: {
+      type: String,
+      default: '',
+    },
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,

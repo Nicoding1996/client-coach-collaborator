@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,25 +11,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Camera, Check, LogOut, Building, MapPin, Globe, Mail, Phone, Calendar, Clock, FileText, CreditCard, Users, File } from "lucide-react";
-import { userAPI } from "@/lib/api";
+import { authAPI } from "@/services/api";
 
 const CoachProfile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: "+1 (555) 123-4567",
-    bio: "Certified Executive Coach with 8+ years of experience helping professionals achieve their career goals. Specializing in leadership development, career transitions, and work-life balance.",
-    company: "Breakthrough Coaching LLC",
-    location: "San Francisco, CA",
-    website: "www.breakthroughcoaching.com",
-    specialties: "Executive Coaching, Leadership Development, Career Transitions",
-    certifications: "ICF PCC, CPCC, MBA"
+    phone: "",
+    bio: "",
+    company: "",
+    location: "",
+    website: "",
+    specialties: "",
+    certifications: ""
   });
   
   // Schedule data
@@ -166,6 +167,62 @@ const CoachProfile = () => {
     }
   ];
   
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Try to fetch profile from API
+        try {
+          const profileData = await authAPI.getProfile();
+          setFormData({
+            name: profileData.name || user?.name || "",
+            email: profileData.email || user?.email || "",
+            phone: profileData.phone || "",
+            bio: profileData.bio || "",
+            company: profileData.company || "",
+            location: profileData.location || "",
+            website: profileData.website || "",
+            specialties: profileData.specialties || "",
+            certifications: profileData.certifications || ""
+          });
+          console.log("Profile loaded successfully from API");
+        } catch (error) {
+          console.error('Error fetching profile from API:', error);
+          
+          // If the API fails, try to get data from localStorage
+          const localUserData = localStorage.getItem('user');
+          if (localUserData) {
+            try {
+              const userData = JSON.parse(localUserData);
+              setFormData({
+                name: userData.name || user?.name || "",
+                email: userData.email || user?.email || "",
+                phone: userData.phone || "",
+                bio: userData.bio || "",
+                company: userData.company || "",
+                location: userData.location || "",
+                website: userData.website || "",
+                specialties: userData.specialties || "",
+                certifications: userData.certifications || ""
+              });
+              console.log("Profile loaded from localStorage (fallback)");
+            } catch (parseError) {
+              console.error('Error parsing user data from localStorage:', parseError);
+              toast.error('Failed to load profile data');
+            }
+          } else {
+            toast.error('Failed to load profile data');
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -174,11 +231,38 @@ const CoachProfile = () => {
     });
   };
   
-  const handleSaveProfile = () => {
-    setIsEditing(false);
-    toast.success("Profile updated successfully");
-    // In a real implementation, you would call your API here
-    // userAPI.updateProfile(formData);
+  const handleSaveProfile = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default form submission behavior that causes page refresh
+    e.preventDefault();
+    
+    try {
+      setIsLoading(true);
+
+      // Log the profile data we're sending
+      console.log("Saving profile data:", formData);
+
+      try {
+        // Try to update profile via API
+        await updateProfile(formData);
+        setIsEditing(false);
+        toast.success("Profile updated successfully");
+        
+        // Also update localStorage as fallback
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUserData = { ...userData, ...formData };
+        localStorage.setItem('user', JSON.stringify(updatedUserData));
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        
+        if (!navigator.onLine) {
+          toast.error("You're offline. Please check your internet connection.");
+        } else {
+          toast.error("Failed to update profile. Please try again later.");
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleAvatarClick = () => {
@@ -195,11 +279,10 @@ const CoachProfile = () => {
     
     try {
       setIsUploading(true);
-      // Call your API to upload the avatar
-      await userAPI.updateAvatar(file);
+      const formData = new FormData();
+      formData.append('avatar', file);
+      await authAPI.updateAvatar(formData);
       toast.success("Profile photo updated successfully");
-      // Refresh user data or update local state
-      // This would typically involve updating the global user state
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast.error("Failed to update profile photo");
@@ -245,7 +328,7 @@ const CoachProfile = () => {
                     <Button variant="outline" onClick={() => setIsEditing(false)}>
                       Cancel
                     </Button>
-                    <Button onClick={handleSaveProfile}>
+                    <Button type="button" onClick={handleSaveProfile}>
                       <Check className="mr-2 h-4 w-4" />
                       Save
                     </Button>

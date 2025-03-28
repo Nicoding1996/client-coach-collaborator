@@ -113,6 +113,9 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user._id);
 
   if (user) {
+    // Log the incoming update request
+    console.log('Profile update request:', req.body);
+    
     user.name = req.body.name || user.name;
     user.email = req.body.email || user.email;
     user.bio = req.body.bio || user.bio;
@@ -120,12 +123,15 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.company = req.body.company || user.company;
     user.location = req.body.location || user.location;
     user.website = req.body.website || user.website;
+    user.specialties = req.body.specialties || user.specialties;
+    user.certifications = req.body.certifications || user.certifications;
 
     if (req.body.password) {
       user.password = req.body.password;
     }
 
     const updatedUser = await user.save();
+    console.log('User profile updated successfully');
 
     res.json({
       _id: updatedUser._id,
@@ -137,6 +143,8 @@ const updateUserProfile = asyncHandler(async (req, res) => {
       company: updatedUser.company,
       location: updatedUser.location,
       website: updatedUser.website,
+      specialties: updatedUser.specialties,
+      certifications: updatedUser.certifications,
       avatar: updatedUser.avatar,
       token: generateToken(updatedUser._id),
     });

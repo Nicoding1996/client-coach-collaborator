@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Camera, Check, LogOut, MapPin, Mail, Phone, Target, Calendar, FileText } from "lucide-react";
-import { userAPI } from "@/lib/api";
+import { authAPI } from "@/services/api";
 
 // Mock data
 const goals = [
@@ -71,21 +71,74 @@ const assessments = [
 ];
 
 const ClientProfile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: "+1 (555) 987-6543",
-    bio: "Marketing Director with 7 years of experience seeking to enhance leadership and public speaking skills. Currently focused on transitioning to a more strategic role within my organization.",
-    company: "Acme Marketing Solutions",
-    location: "Chicago, IL",
-    title: "Marketing Director"
+    phone: "",
+    bio: "",
+    company: "",
+    location: "",
+    title: ""
   });
+  
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Try to fetch profile from API
+        try {
+          const profileData = await authAPI.getProfile();
+          setFormData({
+            name: profileData.name || user?.name || "",
+            email: profileData.email || user?.email || "",
+            phone: profileData.phone || "",
+            bio: profileData.bio || "",
+            company: profileData.company || "",
+            location: profileData.location || "",
+            title: profileData.title || ""
+          });
+          console.log("Profile loaded successfully from API");
+        } catch (error) {
+          console.error('Error fetching profile from API:', error);
+          
+          // If the API fails, try to get data from localStorage
+          const localUserData = localStorage.getItem('user');
+          if (localUserData) {
+            try {
+              const userData = JSON.parse(localUserData);
+              setFormData({
+                name: userData.name || user?.name || "",
+                email: userData.email || user?.email || "",
+                phone: userData.phone || "",
+                bio: userData.bio || "",
+                company: userData.company || "",
+                location: userData.location || "",
+                title: userData.title || ""
+              });
+              console.log("Profile loaded from localStorage (fallback)");
+            } catch (parseError) {
+              console.error('Error parsing user data from localStorage:', parseError);
+              toast.error('Failed to load profile data');
+            }
+          } else {
+            toast.error('Failed to load profile data');
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -95,11 +148,35 @@ const ClientProfile = () => {
     });
   };
   
-  const handleSaveProfile = () => {
-    setIsEditing(false);
-    toast.success("Profile updated successfully");
-    // In a real implementation, you would call your API here
-    // userAPI.updateProfile(formData);
+  const handleSaveProfile = async () => {
+    try {
+      setIsLoading(true);
+
+      // Log the profile data we're sending
+      console.log("Saving profile data:", formData);
+
+      try {
+        // Try to update profile via API
+        await updateProfile(formData);
+        setIsEditing(false);
+        toast.success("Profile updated successfully");
+        
+        // Also update localStorage as fallback
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUserData = { ...userData, ...formData };
+        localStorage.setItem('user', JSON.stringify(updatedUserData));
+      } catch (error) {
+        console.error('Error updating profile:', error);
+        
+        if (!navigator.onLine) {
+          toast.error("You're offline. Please check your internet connection.");
+        } else {
+          toast.error("Failed to update profile. Please try again later.");
+        }
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handleAvatarClick = () => {
@@ -116,11 +193,10 @@ const ClientProfile = () => {
     
     try {
       setIsUploading(true);
-      // Call your API to upload the avatar
-      await userAPI.updateAvatar(file);
+      const formData = new FormData();
+      formData.append('avatar', file);
+      await authAPI.updateAvatar(formData);
       toast.success("Profile photo updated successfully");
-      // Refresh user data or update local state
-      // This would typically involve updating the global user state
     } catch (error) {
       console.error('Error uploading avatar:', error);
       toast.error("Failed to update profile photo");

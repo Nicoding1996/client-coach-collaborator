@@ -19,16 +19,24 @@ const __dirname = path.dirname(__filename);
 
 // CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:8080', 'http://localhost:5173'], // Allow both Vite dev server ports
+  origin: '*', // Allow all origins for debugging - restrict this in production
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));

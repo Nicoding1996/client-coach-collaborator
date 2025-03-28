@@ -7,6 +7,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Add timeouts to prevent hanging requests
+  timeout: 10000,
 });
 
 // Add a request interceptor to add the auth token to requests
@@ -16,6 +18,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`API Request: ${config.method?.toUpperCase()} ${config.url}`, { 
+      headers: config.headers,
+      data: config.data
+    });
     return config;
   },
   (error) => {
@@ -26,9 +32,27 @@ api.interceptors.request.use(
 
 // Add a response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`API Response: ${response.status} ${response.config.url}`, response.data);
+    return response;
+  },
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout:', error.message);
+    } else if (!error.response) {
+      console.error('Network error - server may be down:', error.message);
+    } else {
+      console.error('API Error:', error.response?.status, error.response?.data || error.message);
+    }
+    
+    // Handle token expiration
+    if (error.response?.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem('token');
+      // Optionally redirect to login
+      window.location.href = '/login';
+    }
+    
     throw error;
   }
 );
@@ -83,6 +107,12 @@ export const authAPI = {
   updateProfile: async (profileData: any) => {
     try {
       const response = await api.put('/users/profile', profileData);
+      
+      // Update user data in localStorage to keep it in sync
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedUserData = { ...userData, ...response.data };
+      localStorage.setItem('user', JSON.stringify(updatedUserData));
+      
       return response.data;
     } catch (error: any) {
       console.error('Update profile error:', error.response?.data || error);
@@ -97,6 +127,14 @@ export const authAPI = {
           'Content-Type': 'multipart/form-data',
         },
       });
+      
+      // Update avatar in localStorage
+      if (response.data.avatar) {
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        userData.avatar = response.data.avatar;
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
       return response.data;
     } catch (error: any) {
       console.error('Update avatar error:', error.response?.data || error);

@@ -17,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role: 'coach' | 'client') => Promise<void>;
   registerWithInvite: (email: string, password: string, name: string, inviteId: string) => Promise<void>;
+  updateProfile: (profileData: any) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -115,6 +116,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateProfile = async (profileData: any) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedUser = await authAPI.updateProfile(profileData);
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      toast.success('Profile updated successfully');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     authAPI.logout();
     setUser(null);
@@ -128,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     registerWithInvite,
+    updateProfile,
     logout,
     isAuthenticated: !!user,
   };
