@@ -141,6 +141,160 @@ export const authAPI = {
       throw error;
     }
   },
+
+  getClients: async (params = {}) => {
+    try {
+      const response = await api.get('/clients', { params });
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get clients error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getSessions: async () => {
+    try {
+      const response = await api.get('/sessions');
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get sessions error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  createSession: async (sessionData: { clientId: string; sessionDate: Date; time: string; duration: number; focusTopic: string }) => {
+    try {
+      const response = await api.post('/sessions', sessionData);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Create session error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getSessionById: async (sessionId: string) => {
+    try {
+      const response = await api.get(`/sessions/${sessionId}`);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get session by ID error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  updateSession: async (sessionId: string, updatedSessionData: any) => {
+    try {
+      const response = await api.put(`/sessions/${sessionId}`, updatedSessionData);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Update session error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  deleteSession: async (sessionId: string) => {
+    try {
+      const response = await api.delete(`/sessions/${sessionId}`);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Delete session error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getInvoices: async () => {
+    try {
+      const response = await api.get('/invoices');
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get invoices error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  createInvoice: async (invoiceData: { clientId: string; issueDate: Date; dueDate: Date; amount?: number; lineItems?: { description: string; quantity: number; price: number }[]; notes: string; status: string }) => {
+    try {
+      const response = await api.post('/invoices', invoiceData);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Create invoice error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  updateInvoice: async (invoiceId: string, updateData: Partial<{ status: string }>) => {
+    try {
+      const response = await api.put(`/invoices/${invoiceId}`, updateData);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Update invoice error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getInvoiceById: async (invoiceId: string) => {
+    try {
+      const response = await api.get(`/invoices/${invoiceId}`);
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get invoice by ID error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getCoachDashboardSummary: async () => {
+    try {
+      const response = await api.get('/dashboard/coach-summary');
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get coach dashboard summary error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
 };
 
 export default api; 

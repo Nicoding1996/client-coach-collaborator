@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +13,8 @@ import {
   PlusCircle,
   FileText,
   Briefcase,
-  FolderArchive
+  FolderArchive,
+  DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -47,9 +47,9 @@ const CoachLayout = () => {
     { path: "/coach/clients", icon: Users, label: "Clients" },
     { path: "/coach/sessions", icon: Calendar, label: "Sessions" },
     { path: "/coach/messages", icon: MessageSquare, label: "Messages" },
-    { path: "/coach/profile", icon: UserCircle, label: "Profile" },
+    { path: "/coach/invoices", icon: DollarSign, label: "Invoices" },
     { path: "/coach/resources", icon: FileText, label: "Resources" },
-    { path: "/coach/invoices", icon: FileText, label: "Invoices" },
+    { path: "/coach/profile", icon: UserCircle, label: "Profile" },
     { path: "/coach/engagements", icon: Briefcase, label: "Engagements" },
   ];
   

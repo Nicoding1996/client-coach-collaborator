@@ -6,6 +6,10 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import userRoutes from './routes/userRoutes.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
+import clientRoutes from './routes/clientRoutes.js';
+import sessionRoutes from './routes/sessionRoutes.js';
+import invoiceRoutes from './routes/invoiceRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +47,10 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // API Routes
 app.use('/api/users', userRoutes);
+app.use('/api/clients', clientRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Serve static files from dist directory
 app.use(express.static(path.join(__dirname, '../dist')));

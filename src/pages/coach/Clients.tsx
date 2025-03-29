@@ -1,4 +1,4 @@
-
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,62 +6,31 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Calendar, Clock, Search, Plus, Filter } from "lucide-react";
 import { Link } from "react-router-dom";
-
-// Mock clients data
-const clients = [
-  {
-    id: "1",
-    name: "Emma Wilson",
-    email: "emma.wilson@example.com",
-    avatar: "https://randomuser.me/api/portraits/women/32.jpg",
-    programProgress: 75,
-    startDate: "Jan 15, 2023",
-    nextSession: "Today, 2:00 PM",
-    status: "Active"
-  },
-  {
-    id: "2",
-    name: "David Chen",
-    email: "david.chen@example.com",
-    avatar: "https://randomuser.me/api/portraits/men/44.jpg",
-    programProgress: 40,
-    startDate: "Feb 2, 2023",
-    nextSession: "Tomorrow, 10:30 AM",
-    status: "Active"
-  },
-  {
-    id: "3",
-    name: "Sophie Martin",
-    email: "sophie.m@example.com",
-    avatar: "https://randomuser.me/api/portraits/women/22.jpg",
-    programProgress: 60,
-    startDate: "Dec 10, 2022",
-    nextSession: "Feb 16, 3:15 PM",
-    status: "Active"
-  },
-  {
-    id: "4",
-    name: "Michael Johnson",
-    email: "michael.j@example.com",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-    programProgress: 90,
-    startDate: "Nov 5, 2022",
-    nextSession: "Feb 18, 1:00 PM",
-    status: "Active"
-  },
-  {
-    id: "5",
-    name: "Lisa Brooks",
-    email: "lisa.brooks@example.com",
-    avatar: "https://randomuser.me/api/portraits/women/17.jpg",
-    programProgress: 100,
-    startDate: "Aug 20, 2022",
-    nextSession: "None",
-    status: "Completed"
-  }
-];
+import { authAPI } from '@/services/api';
+import { debounce } from 'lodash';
 
 const CoachClients = () => {
+  const [clients, setClients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const fetchClients = async (search = '') => {
+      try {
+        const data = await authAPI.getClients({ search });
+        setClients(data);
+      } catch (error) {
+        console.error('Failed to fetch clients:', error);
+      }
+    };
+
+    const debouncedFetch = debounce(fetchClients, 300);
+    debouncedFetch(searchTerm);
+
+    return () => {
+      debouncedFetch.cancel();
+    };
+  }, [searchTerm]);
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -87,7 +56,9 @@ const CoachClients = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search clients..." 
-            className="pl-10 w-full md:w-[300px]" 
+            className="pl-10 w-full md:w-[300px]"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div className="flex gap-2 w-full md:w-auto">
@@ -141,12 +112,16 @@ const CoachClients = () => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="w-full md:w-auto">
-                      Profile
-                    </Button>
-                    <Button size="sm" className="w-full md:w-auto">
-                      Message
-                    </Button>
+                    <Link to={`/coach/clients/${client.id}`} className="w-full md:w-auto">
+                      <Button variant="outline" size="sm" className="w-full md:w-auto">
+                        Profile
+                      </Button>
+                    </Link>
+                    <Link to={`/coach/messages?clientId=${client.id}`} className="w-full md:w-auto">
+                      <Button size="sm" className="w-full md:w-auto">
+                        Message
+                      </Button>
+                    </Link>
                   </div>
                 </div>
               </div>
