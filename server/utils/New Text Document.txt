@@ -1,0 +1,28 @@
+// server/utils/invoiceUtils.js
+import Invoice from '../models/Invoice.js'; // Need Invoice model to check uniqueness if desired
+
+// Basic example: Generate a simple sequential or date-based number
+// WARNING: This basic example is NOT robust for high concurrency or restarts
+// and doesn't guarantee absolute uniqueness without checking the DB.
+// Consider using a dedicated library or more complex logic for production.
+export const generateInvoiceNumber = async () => {
+    try {
+        // Find the count of existing invoices to create a simple sequential number
+        const count = await Invoice.countDocuments();
+        const nextNumber = count + 1;
+        // Format it (e.g., INV-0001)
+        const formattedNumber = `INV-${String(nextNumber).padStart(4, '0')}`;
+
+        // Optional: Check if this number somehow already exists (unlikely with simple count)
+        // const exists = await Invoice.findOne({ invoiceNumber: formattedNumber });
+        // if (exists) { /* handle collision - maybe try again or use timestamp */ }
+
+        return formattedNumber;
+    } catch (error) {
+        console.error("Error generating invoice number:", error);
+        // Fallback or throw error
+        return `INV-ERR-${Date.now()}`;
+    }
+};
+
+// Add other invoice-related utility functions here if needed

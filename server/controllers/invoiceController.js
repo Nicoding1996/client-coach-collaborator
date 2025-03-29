@@ -1,17 +1,42 @@
-const asyncHandler = require('express-async-handler');
-const Invoice = require('../models/Invoice');
+import asyncHandler from 'express-async-handler';
+import Invoice from '../models/Invoice.js'; // Use import and .js
+import { generateInvoiceNumber } from '../utils/invoiceUtils.js'; // Assuming you create a utility for this
 
 // @desc    Create a new invoice
 // @route   POST /api/invoices
 // @access  Private
-const createInvoice = asyncHandler(async (req, res) => {
-  const { amount, description, dueDate } = req.body;
+export const createInvoice = asyncHandler(async (req, res) => {
+  // Destructure expected fields from req.body
+  const { clientId, amount, lineItems, description, dueDate, notes, status } = req.body;
+
+  // Basic validation
+  if (!clientId || (!amount && !lineItems)) {
+      res.status(400);
+      throw new Error('Client ID and Amount or Line Items are required');
+  }
+
+  // Calculate amount from lineItems if necessary
+  let calculatedAmount = amount;
+  if (!calculatedAmount && lineItems && lineItems.length > 0) {
+    calculatedAmount = lineItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+  }
+  if (!calculatedAmount) {
+      res.status(400);
+      throw new Error('Invoice amount cannot be zero');
+  }
+
+  const invoiceNumber = await generateInvoiceNumber(); // Implement this utility function
 
   const invoice = new Invoice({
-    amount,
-    description,
+    coachId: req.user._id, // Assign logged-in coach
+    clientId,
+    invoiceNumber,
+    amount: calculatedAmount,
+    lineItems,
+    description, // Add description if needed in schema/request
     dueDate,
-    coachId: req.user._id
+    notes,
+    status: status || 'Draft' // Default status if not provided
   });
 
   const createdInvoice = await invoice.save();
@@ -21,16 +46,21 @@ const createInvoice = asyncHandler(async (req, res) => {
 // @desc    Get all invoices for the logged-in coach
 // @route   GET /api/invoices
 // @access  Private
-const getMyInvoices = asyncHandler(async (req, res) => {
-  const invoices = await Invoice.find({ coachId: req.user._id });
+export const getMyInvoices = asyncHandler(async (req, res) => {
+  // Add filtering/sorting/pagination later if needed
+  const invoices = await Invoice.find({ coachId: req.user._id })
+                                .populate('clientId', 'name email') // Populate client info
+                                .sort({ issueDate: -1 }); // Sort by issue date descending
   res.json(invoices);
 });
 
 // @desc    Get invoice by ID
 // @route   GET /api/invoices/:id
 // @access  Private
-const getInvoiceById = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id);
+export const getInvoiceById = asyncHandler(async (req, res) => {
+  const invoice = await Invoice.findOne({ _id: req.params.id, coachId: req.user._id })
+                               .populate('clientId', 'name email'); // Populate client info
+  // Ensure coach can only get their own invoices
 
   if (invoice) {
     res.json(invoice);
@@ -43,15 +73,22 @@ const getInvoiceById = asyncHandler(async (req, res) => {
 // @desc    Update invoice
 // @route   PUT /api/invoices/:id
 // @access  Private
-const updateInvoice = asyncHandler(async (req, res) => {
-  const { amount, description, dueDate } = req.body;
+export const updateInvoice = asyncHandler(async (req, res) => {
+  // Allow updating specific fields like status, notes, dueDate, etc.
+  const { amount, lineItems, description, dueDate, notes, status } = req.body;
 
-  const invoice = await Invoice.findById(req.params.id);
+  const invoice = await Invoice.findOne({ _id: req.params.id, coachId: req.user._id });
+  // Ensure coach can only update their own invoices
 
   if (invoice) {
-    invoice.amount = amount || invoice.amount;
-    invoice.description = description || invoice.description;
-    invoice.dueDate = dueDate || invoice.dueDate;
+    // Update only provided fields
+    if (amount !== undefined) invoice.amount = amount;
+    if (lineItems !== undefined) invoice.lineItems = lineItems;
+    if (description !== undefined) invoice.description = description;
+    if (dueDate !== undefined) invoice.dueDate = dueDate;
+    if (notes !== undefined) invoice.notes = notes;
+    if (status !== undefined) invoice.status = status;
+     // Add logic here if status changes to 'Paid', maybe set a paidDate?
 
     const updatedInvoice = await invoice.save();
     res.json(updatedInvoice);
@@ -64,11 +101,11 @@ const updateInvoice = asyncHandler(async (req, res) => {
 // @desc    Delete invoice
 // @route   DELETE /api/invoices/:id
 // @access  Private
-const deleteInvoice = asyncHandler(async (req, res) => {
-  const invoice = await Invoice.findById(req.params.id);
+export const deleteInvoice = asyncHandler(async (req, res) => {
+  const result = await Invoice.deleteOne({ _id: req.params.id, coachId: req.user._id });
+  // Ensure coach can only delete their own invoices
 
-  if (invoice) {
-    await invoice.remove();
+  if (result.deletedCount === 1) {
     res.json({ message: 'Invoice removed' });
   } else {
     res.status(404);
@@ -76,10 +113,4 @@ const deleteInvoice = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  createInvoice,
-  getMyInvoices,
-  getInvoiceById,
-  updateInvoice,
-  deleteInvoice
-}; 
+// NO module.exports or block export {} needed here

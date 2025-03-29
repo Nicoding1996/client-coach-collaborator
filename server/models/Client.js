@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const clientSchema = new mongoose.Schema({
   coachId: {
@@ -28,6 +28,6 @@ const clientSchema = new mongoose.Schema({
   timestamps: true
 });
 
+const Client = mongoose.model('Client', clientSchema);
 
-
-export default Client; //
+export default Client;
