@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/datepicker'; // Ensure DatePicker is set up
+import { DatePicker } from '@/components/ui/date-picker'; // Use hyphenated path
 import { authAPI } from '@/services/api';
 
 const ScheduleSessionForm = ({ onSuccess }) => {

@@ -13,7 +13,7 @@ import { authAPI } from "@/services/api";
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import ScheduleSessionForm from '@/components/forms/ScheduleSessionForm';
 import { Textarea } from '@/components/ui/textarea';
-import toast from 'sonner';
+import { toast } from 'sonner'; 
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
 
 interface SessionType {

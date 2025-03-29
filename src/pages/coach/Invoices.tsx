@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileDown, FileText, Plus, Search, Filter, ArrowUpDown, Download, Eye, CreditCard } from "lucide-react";
-import { authAPI } from "@/lib/authAPI";
+import { authAPI } from "@/services/api"; 
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import CreateInvoiceForm from '@/components/forms/CreateInvoiceForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
