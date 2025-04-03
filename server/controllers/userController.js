@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
-
+import Invite from '../models/Invite.js'; // Import Invite model
 // Generate JWT (Internal helper, no need to export)
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -14,48 +14,154 @@ const generateToken = (id) => {
 // @route   POST /api/users/register
 // @access  Public
 export const registerUser = asyncHandler(async (req, res) => {
-  // Keep existing try/catch or rely on asyncHandler + external error middleware
-  const { name, email, password, role } = req.body;
-  console.log('Registration attempt:', { name, email, role });
+  const { name, email, password, role, inviteToken } = req.body; // Add inviteToken
+  console.log('Registration attempt:', { name, email, role, inviteToken: !!inviteToken });
 
-  if (!name || !email || !password || !role) {
-    console.log('Missing required fields:', { name: !!name, email: !!email, password: !!password, role: !!role });
-    res.status(400);
-    throw new Error('Please add all fields'); // asyncHandler handles this
-  }
+  if (inviteToken) {
+    // --- Invite Token Registration Path ---
+    console.log('[RegisterUser] Attempting registration via invite token:', inviteToken); // Log the token received
 
-  const userExists = await User.findOne({ email });
-  console.log('User exists check:', !!userExists);
-
-  if (userExists) {
-    res.status(400);
-    throw new Error('User already exists');
-  }
-
-  // Password hashing is handled by pre-save middleware in User model
-
-  const user = await User.create({
-    name,
-    email,
-    password,
-    role,
-  });
-
-  if (user) {
-    console.log('User created successfully:', user._id);
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar, // Include avatar if needed
-      // Include other fields needed on registration/login
-      token: generateToken(user._id),
+    // 1. Validate Invite Token
+    const invite = await Invite.findOne({
+      token: inviteToken,
+      status: 'Pending',
+      expiresAt: { $gt: new Date() },
     });
+    console.log('[RegisterUser] Invite.findOne result:', invite ? `Found invite ID: ${invite._id}` : 'No matching invite found'); // Log findOne result
+
+    if (!invite) {
+      console.log('[RegisterUser] Validation failed: Invalid or expired invite token provided:', inviteToken); // Log failure details
+      res.status(400);
+      throw new Error('Invalid or expired invite token.');
+    }
+    console.log('[RegisterUser] Validation success: Valid invite found:', JSON.stringify(invite)); // Log the found invite details
+
+    // 2. Check if user already exists (even with invite)
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      console.log('User already exists despite invite:', email);
+      res.status(400);
+      throw new Error('User already exists');
+    }
+
+    // 3. Create the new Client User (Force role to 'client')
+    // Basic validation for client creation fields
+    if (!name || !email || !password) {
+       console.log('Missing required fields for invite registration:', { name: !!name, email: !!email, password: !!password });
+       res.status(400);
+       throw new Error('Please provide name, email, and password');
+    }
+
+    const newUser = await User.create({
+      name,
+      email,
+      password,
+      role: 'client', // Force role to client for invite registration
+    });
+
+    if (!newUser) {
+      // This case might be less likely if validation passes but handle defensively
+      console.log('Failed to create user during invite registration');
+      res.status(500); // Or 400 depending on assumed cause
+      throw new Error('Could not create user account.');
+    }
+    console.log('Client user created successfully:', newUser._id);
+
+    // 4. Link Coach and Client
+    const coach = await User.findById(invite.coachId);
+    // newUser is already the client object
+
+    if (coach && newUser) {
+       try {
+          coach.clients.push(newUser._id);
+          newUser.coaches.push(coach._id);
+
+          await coach.save();
+          console.log('Coach document updated with new client.');
+          await newUser.save(); // newUser already has role: 'client' from creation
+          console.log('Client document updated with coach.');
+
+          // 5. Update Invite Status
+          invite.status = 'Accepted';
+          await invite.save();
+          console.log('Invite status updated to Accepted.');
+
+       } catch (linkError) {
+         console.error('Error linking coach and client or updating invite:', linkError);
+         // Consider cleanup? Difficult to roll back cleanly here. Log is crucial.
+         // Perhaps don't throw, allow login but flag for admin?
+         // For now, let registration succeed but log the linking failure.
+         // Alternatively, could attempt to delete the newly created user
+         // await User.findByIdAndDelete(newUser._id);
+         // res.status(500);
+         // throw new Error('Failed to link coach and client.');
+       }
+
+    } else {
+       console.error(`Critical: Coach (ID: ${invite.coachId}, Found: ${!!coach}) or Client (ID: ${newUser?._id}, Found: ${!!newUser}) not found after creation.`);
+       // This is a serious state inconsistency. Registration technically succeeded, but linking failed.
+       // Decide on recovery strategy: Allow login but log error? Attempt cleanup?
+    }
+
+    // 6. Return Response
+    console.log('Invite registration successful for user:', newUser._id);
+    res.status(201).json({
+      _id: newUser._id,
+      name: newUser.name,
+      email: newUser.email,
+      role: newUser.role, // will be 'client'
+      avatar: newUser.avatar,
+      token: generateToken(newUser._id),
+    });
+
   } else {
-    console.log('Failed to create user'); // Should be caught by asyncHandler
-    res.status(400);
-    throw new Error('Invalid user data');
+    // --- Standard Registration Path (No Invite Token) ---
+    console.log('Attempting standard registration.');
+
+    if (!name || !email || !password || !role) {
+      console.log('Missing required fields for standard registration:', { name: !!name, email: !!email, password: !!password, role: !!role });
+      res.status(400);
+      throw new Error('Please add all fields (name, email, password, role)');
+    }
+
+    // Role validation (optional, depends on your requirements for standard sign-up)
+    // if (role !== 'coach') { // Example: Only allow coaches for standard registration
+    //   res.status(400);
+    //   throw new Error('Invalid role for standard registration.');
+    // }
+
+    const userExists = await User.findOne({ email });
+    console.log('User exists check (standard):', !!userExists);
+
+    if (userExists) {
+      res.status(400);
+      throw new Error('User already exists');
+    }
+
+    // Password hashing is handled by pre-save middleware
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role, // Use the role provided in the request
+    });
+
+    if (user) {
+      console.log('Standard user created successfully:', user._id);
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        token: generateToken(user._id),
+      });
+    } else {
+      console.log('Failed to create user (standard)');
+      res.status(400);
+      throw new Error('Invalid user data');
+    }
   }
 });
 

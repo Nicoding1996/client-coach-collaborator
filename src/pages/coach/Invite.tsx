@@ -1,26 +1,33 @@
-
-import { useState } from "react";
+import { useState } from "react"; // Keep useState
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Copy, Check, Send } from "lucide-react";
+import { Copy, Check, Send, Loader2, AlertCircle } from "lucide-react"; // Added Loader2, AlertCircle
 import { useAuth } from "@/contexts/AuthContext";
+import { authAPI } from "@/services/api"; // Import authAPI
 
 const CoachInvite = () => {
   const { user } = useAuth();
+  
+  // State for email invite
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false); // Keep this for email invite feedback
+
+  // State for generating invite link
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null); // Renamed error state to avoid conflict
+
+  // State for copy button
   const [isCopied, setIsCopied] = useState(false);
-  const [inviteSent, setInviteSent] = useState(false);
-  
-  // Generate a mock invite link
-  const inviteLink = `${window.location.origin}/invite/${Math.random().toString(36).substring(2, 12)}`;
-  
+
   const handleSendInvite = async () => {
+    // ... (keep existing email invite logic)
     if (!email) {
       toast.error("Please enter an email address");
       return;
@@ -29,8 +36,8 @@ const CoachInvite = () => {
     setIsSending(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // TODO: Replace with actual API call for sending email invites if needed
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
       
       setInviteSent(true);
       toast.success(`Invitation sent to ${email}`);
@@ -44,9 +51,32 @@ const CoachInvite = () => {
       setIsSending(false);
     }
   };
+
+  // New handler for generating the link
+  const handleGenerateLink = async () => {
+    setIsGenerating(true);
+    setLinkError(null); // Clear previous errors
+    setInviteToken(null); // Clear previous token
+
+    try {
+      const token = await authAPI.generateInviteLink();
+      setInviteToken(token);
+      toast.success("Invite link generated successfully!");
+    } catch (error) {
+      console.error("Error generating invite link:", error);
+      setLinkError("Failed to generate invite link. Please try again.");
+      toast.error("Failed to generate invite link.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
   
+  // Updated handler for copying the generated link
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(inviteLink);
+    if (!inviteToken) return; // Don't copy if no token
+
+    const fullInviteLink = `${window.location.origin}/invite/${inviteToken}`; // Use window.location.origin for flexibility
+    navigator.clipboard.writeText(fullInviteLink);
     setIsCopied(true);
     toast.success("Invite link copied to clipboard");
     
@@ -60,6 +90,7 @@ const CoachInvite = () => {
       <h1 className="text-3xl font-bold tracking-tight mb-6">Invite Client</h1>
       
       <div className="grid gap-8">
+        {/* Email Invite Card - Unchanged */}
         <Card>
           <CardHeader>
             <CardTitle>Send Email Invitation</CardTitle>
@@ -98,7 +129,8 @@ const CoachInvite = () => {
             >
               {isSending ? (
                 <span className="flex items-center">
-                  <span className="animate-pulse">Sending...</span>
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {/* Use Loader2 */}
+                  Sending...
                 </span>
               ) : (
                 <span className="flex items-center">
@@ -110,44 +142,77 @@ const CoachInvite = () => {
           </CardFooter>
         </Card>
         
+        {/* Share Invite Link Card - Modified */}
         <Card>
           <CardHeader>
             <CardTitle>Share Invite Link</CardTitle>
             <CardDescription>
-              Copy the invite link and share it with your client manually.
+              Generate a unique invite link to share with your client manually.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex">
-              <Input
-                value={inviteLink}
-                readOnly
-                className="flex-1 rounded-r-none"
-              />
-              <Button
-                className="rounded-l-none"
-                variant="secondary"
-                onClick={handleCopyLink}
-              >
-                {isCopied ? (
+            {/* Generate Button and Error Display */}
+            <div className="mb-4 space-y-2">
+              <Button onClick={handleGenerateLink} disabled={isGenerating}>
+                {isGenerating ? (
                   <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Copied
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
                   </>
                 ) : (
-                  <>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </>
+                  "Generate Link"
                 )}
               </Button>
+              {linkError && (
+                <p className="text-sm text-red-600 flex items-center">
+                  <AlertCircle className="mr-1 h-4 w-4" /> 
+                  {linkError}
+                </p>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              This link will expire in 7 days. Your client will be automatically connected to you when they sign up.
-            </p>
+
+            {/* Conditionally rendered Input and Copy button */}
+            {inviteToken && (
+              <>
+                <div className="flex">
+                  <Input
+                    value={`${window.location.origin}/invite/${inviteToken}`} // Construct link using state
+                    readOnly
+                    className="flex-1 rounded-r-none"
+                  />
+                  <Button
+                    className="rounded-l-none"
+                    variant="secondary"
+                    onClick={handleCopyLink}
+                    disabled={!inviteToken} // Disable if no token
+                  >
+                    {isCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  This link will expire based on your server configuration. Your client will be automatically connected to you when they sign up.
+                </p>
+              </>
+            )}
+            {!inviteToken && !isGenerating && !linkError && (
+                 <p className="text-sm text-muted-foreground mt-4">
+                   Click "Generate Link" to create a shareable invitation link.
+                 </p>
+            )}
           </CardContent>
         </Card>
         
+        {/* Invite Sent Confirmation - Unchanged */}
         {inviteSent && (
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="pt-6">

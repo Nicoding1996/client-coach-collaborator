@@ -3,11 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Users, Clock, CreditCard, ChevronRight, ArrowUpRight } from "lucide-react";
+import { Calendar, Users, Clock, CreditCard, ChevronRight, ArrowUpRight, Plus } from "lucide-react"; // Added Plus
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { authAPI } from "@/services/api";
-import { toast } from "react-toastify";
+import { toast } from "sonner"; // Changed to sonner
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"; // Added Dialog imports
+import ScheduleSessionForm from "@/components/forms/ScheduleSessionForm"; // Fixed import to default
 
 // Mock data
 const upcomingSessions = [
@@ -184,7 +186,7 @@ const CoachDashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardSummaryType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+  const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false); // Added Dialog state
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
@@ -200,6 +202,14 @@ const CoachDashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  // Handler for successful session scheduling
+  const handleSessionScheduled = () => {
+    setIsScheduleDialogOpen(false); // Close the dialog
+    toast.success("Session scheduled successfully!"); // Show success toast
+    // Optionally: Trigger data refresh if needed
+    // fetchDashboardData();
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -219,9 +229,17 @@ const CoachDashboard = () => {
         <>
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user?.name?.split(' ')[0]}</h1>
-            <Button>
-              Schedule Session
-            </Button>
+            <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Schedule Session
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                {/* Render ScheduleSessionForm inside DialogContent */}
+                <ScheduleSessionForm onSuccess={handleSessionScheduled} />
+              </DialogContent>
+            </Dialog>
           </div>
           
           <Tabs defaultValue="overview" className="space-y-8" onValueChange={setActiveTab}>

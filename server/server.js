@@ -10,7 +10,7 @@ import clientRoutes from './routes/clientRoutes.js';
 import sessionRoutes from './routes/sessionRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
-
+import inviteRoutes from './routes/inviteRoutes.js'; // Add invite routes import
 // Load environment variables
 dotenv.config();
 
@@ -51,7 +51,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
+app.use('/api/invites', inviteRoutes); // Mount invite routes
 // Serve static files from dist directory
 app.use(express.static(path.join(__dirname, '../dist')));
 
