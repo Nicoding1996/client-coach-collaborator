@@ -138,15 +138,44 @@ const stats = [
   }
 ];
 
+// Define specific types based on usage and mock data
+interface Task {
+  id: string;
+  title: string;
+  dueDate: string;
+  priority: 'High' | 'Medium' | 'Low';
+  completed: boolean;
+}
+
+interface RecentClient {
+  id: string;
+  name: string;
+  avatar: string;
+  email: string;
+  progress: number;
+  nextSession: string;
+}
+
+interface RecentSession {
+  id: string;
+  clientName: string;
+  clientAvatar: string;
+  date: string;
+  time: string;
+  duration: string;
+  type: string;
+}
+
+
 // Define the type for the dashboard summary
 interface DashboardSummaryType {
   clientCount: number;
   upcomingSessionsCount: number;
   totalOutstanding: number;
   totalPaidLast30Days: number;
-  recentSessions: Array<any>;
-  recentClients: Array<any>;
-  tasks: Array<any>;
+  recentSessions: RecentSession[];
+  recentClients: RecentClient[];
+  tasks: Task[];
 }
 
 const CoachDashboard = () => {
@@ -312,37 +341,24 @@ const CoachDashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {dashboardData?.tasks.slice(0, 4).map((task) => (
-                        <div 
-                          key={task.id} 
-                          className={`flex items-start p-3 rounded-lg ${
-                            task.completed 
-                              ? "bg-muted/50 text-muted-foreground" 
-                              : task.priority === "High" 
-                                ? "border-l-4 border-red-500" 
-                                : ""
-                          }`}
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center">
-                              <span className={`text-sm font-medium ${task.completed ? "line-through" : ""}`}>
-                                {task.title}
-                              </span>
+                      {Array.isArray(dashboardData?.tasks) ? (
+                        dashboardData.tasks.slice(0, 4).map((task) => (
+                          <div key={task.id} className={`flex items-start p-3 rounded-lg ${task.completed ? "bg-muted/50 text-muted-foreground" : task.priority === "High" ? "border-l-4 border-red-500" : ""}`}>
+                            <div className="flex-1">
+                              <div className="flex items-center">
+                                <span className={`text-sm font-medium ${task.completed ? "line-through" : ""}`}>{task.title}</span>
+                              </div>
+                              <div className="flex items-center mt-1">
+                                <span className="text-xs text-muted-foreground">Due: {task.dueDate}</span>
+                                {task.priority === "High" && <span className="ml-2 text-xs font-medium text-red-500">High Priority</span>}
+                              </div>
                             </div>
-                            <div className="flex items-center mt-1">
-                              <span className="text-xs text-muted-foreground">Due: {task.dueDate}</span>
-                              {task.priority === "High" && (
-                                <span className="ml-2 text-xs font-medium text-red-500">High Priority</span>
-                              )}
-                            </div>
+                            {!task.completed && <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0"><ChevronRight className="h-4 w-4" /></Button>}
                           </div>
-                          {!task.completed && (
-                            <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0">
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p>No tasks available.</p>
+                      )}
                     </div>
                     <div className="mt-4 text-center">
                       <Button variant="outline" size="sm" className="w-full">
@@ -356,73 +372,76 @@ const CoachDashboard = () => {
             
             <TabsContent value="sessions">
               <div className="grid gap-6">
-                {dashboardData?.recentSessions.map((session) => (
-                  <Card key={session.id} className="hover-lift">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={session.clientAvatar} alt={session.clientName} />
-                            <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
-                          </Avatar>
-                          <div className="ml-4">
-                            <h3 className="font-medium">{session.clientName}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {session.date} at {session.time} • {session.duration}
-                            </p>
+                {Array.isArray(dashboardData?.recentSessions) ? (
+                  dashboardData.recentSessions.map((session) => (
+                    <Card key={session.id} className="hover-lift">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-center">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={session.clientAvatar} alt={session.clientName} />
+                              <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
+                            </Avatar>
+                            <div className="ml-4">
+                              <h3 className="font-medium">{session.clientName}</h3>
+                              <p className="text-sm text-muted-foreground">{session.date} at {session.time} • {session.duration}</p>
+                            </div>
+                          </div>
+                          <div className="space-x-2 flex md:justify-end">
+                            <Button variant="outline" size="sm">Reschedule</Button>
+                            <Button size="sm">Join Session</Button>
                           </div>
                         </div>
-                        <div className="space-x-2 flex md:justify-end">
-                          <Button variant="outline" size="sm">
-                            Reschedule
-                          </Button>
-                          <Button size="sm">
-                            Join Session
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <p>No sessions available.</p>
+                )}
               </div>
             </TabsContent>
             
             <TabsContent value="clients">
               <div className="grid gap-6">
-                {dashboardData?.recentClients.map((client) => (
-                  <Card key={client.id} className="hover-lift">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col md:flex-row justify-between gap-4">
-                        <div className="flex items-center">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={client.avatar} alt={client.name} />
-                            <AvatarFallback>{getInitials(client.name)}</AvatarFallback>
-                          </Avatar>
-                          <div className="ml-4">
-                            <h3 className="font-medium">{client.name}</h3>
-                            <p className="text-sm text-muted-foreground">{client.email}</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2 md:text-right">
-                          <p className="text-sm font-medium">Next Session: {client.nextSession}</p>
-                          <div className="w-full md:w-48">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span>Program Progress</span>
-                              <span className="font-medium">{client.progress}%</span>
+                {Array.isArray(dashboardData?.recentClients) ? (
+                  dashboardData.recentClients.map((client) => (
+                    <Card key={client.id} className="hover-lift">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row justify-between gap-4">
+                          <div className="flex items-center">
+                            <Avatar className="h-12 w-12">
+                              <AvatarImage src={client.avatar} alt={client.name} />
+                              <AvatarFallback>{getInitials(client.name)}</AvatarFallback>
+                            </Avatar>
+                            <div className="ml-4">
+                              <h3 className="font-medium">{client.name}</h3>
+                              <p className="text-sm text-muted-foreground">{client.email}</p>
                             </div>
-                            <Progress value={client.progress} className="h-2" />
+                          </div>
+                          <div className="space-y-2 md:text-right">
+                            <p className="text-sm font-medium">Next Session: {client.nextSession}</p>
+                            <div className="w-full md:w-48">
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <span>Program Progress</span>
+                                <span className="font-medium">{client.progress}%</span>
+                              </div>
+                              <Progress value={client.progress} className="h-2" />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <p>No clients available.</p>
+                )}
               </div>
             </TabsContent>
             
             <TabsContent value="tasks">
               <div className="grid gap-4">
-                {dashboardData?.tasks.map((task) => (
+                {/* Check if tasks exists and is an array before mapping */}
+                {Array.isArray(dashboardData?.tasks) ? dashboardData.tasks.map((task) => (
                   <Card 
                     key={task.id} 
                     className={`hover-lift ${
@@ -456,7 +475,7 @@ const CoachDashboard = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                )) : <p className="text-muted-foreground text-sm">No tasks found.</p>}
               </div>
             </TabsContent>
           </Tabs>

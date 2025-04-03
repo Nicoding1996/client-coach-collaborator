@@ -28,6 +28,7 @@ const CoachLayout = () => {
   const location = useLocation();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  // Removed local loading and error states, as they are not used/needed here.
   
   useEffect(() => {
     if (isMobile) {
@@ -53,7 +54,8 @@ const CoachLayout = () => {
     { path: "/coach/engagements", icon: Briefcase, label: "Engagements" },
   ];
   
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined) => {
+    if (!name) return "?";
     return name
       .split(" ")
       .map(part => part[0])
@@ -151,7 +153,10 @@ const CoachLayout = () => {
         onClick={() => isMobile && sidebarOpen && setSidebarOpen(false)}
       >
         <div className="container mx-auto px-4 py-8 max-w-7xl">
-          <Outlet />
+          <div className="space-y-8 animate-fadeIn">
+            {/* Render Outlet directly. Page-specific loading is handled within the page components (e.g., CoachDashboard) */}
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>

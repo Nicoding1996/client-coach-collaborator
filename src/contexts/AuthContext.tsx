@@ -17,7 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, role: 'coach' | 'client') => Promise<void>;
   registerWithInvite: (email: string, password: string, name: string, inviteId: string) => Promise<void>;
-  updateProfile: (profileData: any) => Promise<void>;
+  updateProfile: (profileData: Partial<User>) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -38,17 +38,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check local storage for authenticated user
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error('Error parsing stored user:', err);
-        localStorage.removeItem('user');
+    try {
+      // Check local storage for authenticated user
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (err) {
+          console.error('Error parsing stored user:', err);
+          localStorage.removeItem('user');
+        }
       }
+    } catch (error) {
+       console.error('Unexpected error during initial auth check:', error);
+    } finally {
+       // Ensure loading is always set to false after the initial check attempt
+       setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   // Real login function using API
@@ -60,9 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = await authAPI.login({ email, password });
       setUser(userData);
       toast.success('Logged in successfully');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
-      setError(errorMessage);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      // Attempt to get more specific error message if it's an API error object
+      if (typeof err === 'object' && err !== null && 'response' in err && typeof err.response === 'object' && err.response !== null && 'data' in err.response && typeof err.response.data === 'object' && err.response.data !== null && 'message' in err.response.data) {
+         setError(err.response.data.message as string);
+      } else {
+         setError(errorMessage);
+      }
       toast.error(errorMessage);
       throw err;
     } finally {
@@ -79,10 +90,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = await authAPI.register({ email, password, name, role });
       setUser(userData);
       toast.success('Account created successfully');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (err: unknown) {
+       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+       // Attempt to get more specific error message if it's an API error object
+       if (typeof err === 'object' && err !== null && 'response' in err && typeof err.response === 'object' && err.response !== null && 'data' in err.response && typeof err.response.data === 'object' && err.response.data !== null && 'message' in err.response.data) {
+          setError(err.response.data.message as string);
+          toast.error(err.response.data.message as string);
+       } else {
+          setError(errorMessage);
+          toast.error(errorMessage);
+       }
       throw err;
     } finally {
       setLoading(false);
@@ -106,17 +123,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(userData);
       toast.success('Account created successfully');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+        // Attempt to get more specific error message if it's an API error object
+        if (typeof err === 'object' && err !== null && 'response' in err && typeof err.response === 'object' && err.response !== null && 'data' in err.response && typeof err.response.data === 'object' && err.response.data !== null && 'message' in err.response.data) {
+           setError(err.response.data.message as string);
+           toast.error(err.response.data.message as string);
+        } else {
+           setError(errorMessage);
+           toast.error(errorMessage);
+        }
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const updateProfile = async (profileData: any) => {
+  const updateProfile = async (profileData: Partial<User>) => {
     setLoading(true);
     setError(null);
     
@@ -125,10 +148,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
       toast.success('Profile updated successfully');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'An unknown error occurred';
-      setError(errorMessage);
-      toast.error(errorMessage);
+    } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+        // Attempt to get more specific error message if it's an API error object
+        if (typeof err === 'object' && err !== null && 'response' in err && typeof err.response === 'object' && err.response !== null && 'data' in err.response && typeof err.response.data === 'object' && err.response.data !== null && 'message' in err.response.data) {
+           setError(err.response.data.message as string);
+           toast.error(err.response.data.message as string);
+        } else {
+           setError(errorMessage);
+           toast.error(errorMessage);
+        }
       throw err;
     } finally {
       setLoading(false);
