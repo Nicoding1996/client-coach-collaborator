@@ -2,7 +2,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
-import Invite from '../models/Invite.js'; // Import Invite model
+import Invite from '../models/Invite.js';
+import Client from '../models/Client.js'; // Import Client model
 // Generate JWT (Internal helper, no need to export)
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -69,38 +70,81 @@ export const registerUser = asyncHandler(async (req, res) => {
     console.log('Client user created successfully:', newUser._id);
 
     // 4. Link Coach and Client
+    console.log(`[RegisterUser] Attempting to link Coach (ID: ${invite.coachId}) and Client (ID: ${newUser._id})`);
     const coach = await User.findById(invite.coachId);
-    // newUser is already the client object
+    const client = newUser; // newUser is the client document we just created
 
-    if (coach && newUser) {
-       try {
-          coach.clients.push(newUser._id);
-          newUser.coaches.push(coach._id);
+    if (coach && client) {
+      console.log(`[RegisterUser] Found Coach: ${coach._id}, Found Client: ${client._id}`);
+      let coachNeedsSave = false;
+      let clientNeedsSave = false;
 
-          await coach.save();
-          console.log('Coach document updated with new client.');
-          await newUser.save(); // newUser already has role: 'client' from creation
-          console.log('Client document updated with coach.');
+      try {
+        // Ensure arrays exist and check for idempotency
+        coach.clients = coach.clients || [];
+        if (!coach.clients.includes(client._id)) {
+          console.log(`[RegisterUser] Adding Client ${client._id} to Coach ${coach._id}'s clients array.`);
+          coach.clients.push(client._id);
+          coachNeedsSave = true;
+        } else {
+          console.log(`[RegisterUser] Client ${client._id} already exists in Coach ${coach._id}'s clients array.`);
+        }
 
-          // 5. Update Invite Status
-          invite.status = 'Accepted';
-          await invite.save();
-          console.log('Invite status updated to Accepted.');
+        client.coaches = client.coaches || [];
+        if (!client.coaches.includes(coach._id)) {
+          console.log(`[RegisterUser] Adding Coach ${coach._id} to Client ${client._id}'s coaches array.`);
+          client.coaches.push(coach._id);
+          clientNeedsSave = true;
+        } else {
+          console.log(`[RegisterUser] Coach ${coach._id} already exists in Client ${client._id}'s coaches array.`);
+        }
 
-       } catch (linkError) {
-         console.error('Error linking coach and client or updating invite:', linkError);
-         // Consider cleanup? Difficult to roll back cleanly here. Log is crucial.
-         // Perhaps don't throw, allow login but flag for admin?
-         // For now, let registration succeed but log the linking failure.
-         // Alternatively, could attempt to delete the newly created user
-         // await User.findByIdAndDelete(newUser._id);
-         // res.status(500);
-         // throw new Error('Failed to link coach and client.');
-       }
+        // Save documents concurrently if changes were made
+        const savePromises = [];
+        if (coachNeedsSave) {
+          console.log(`[RegisterUser] Queuing save for Coach ${coach._id}`);
+          savePromises.push(coach.save());
+        }
+        if (clientNeedsSave) {
+          console.log(`[RegisterUser] Queuing save for Client ${client._id}`);
+          savePromises.push(client.save());
+        }
+
+        if (savePromises.length > 0) {
+          console.log(`[RegisterUser] Attempting to save ${savePromises.length} document(s).`);
+          await Promise.all(savePromises);
+          console.log('[RegisterUser] Coach and/or Client documents updated successfully.');
+        } else {
+           console.log('[RegisterUser] No changes needed for Coach/Client linking arrays.');
+        }
+
+        // 5. Update Invite Status (only after successful linking/saving)
+        console.log(`[RegisterUser] Attempting to update invite ${invite._id} status to Accepted.`);
+        invite.status = 'Accepted';
+        await invite.save();
+        console.log(`[RegisterUser] Invite ${invite._id} status updated to Accepted.`);
+
+        // 6. Create corresponding Client document
+        console.log(`[RegisterUser] Attempting to create Client record for Coach ${coach._id} and User ${client._id}`);
+        const clientRecord = await Client.create({
+          coachId: coach._id,
+          userId: client._id, // Link to the User document
+          name: client.name, // Populate name from User document
+          email: client.email, // Populate email from User document
+          // Default values for other fields will be used.
+        });
+        console.log(`[RegisterUser] Client record created successfully: ${clientRecord._id}`);
+
+      } catch (linkError) {
+        console.error('[RegisterUser] Error during coach/client linking or invite update:', linkError);
+        // Consider implications: Linking failed. Registration succeeded, but data is inconsistent.
+        // Might want to surface this error more explicitly or add admin flags.
+        // For now, allow registration to complete but log the error.
+      }
 
     } else {
-       console.error(`Critical: Coach (ID: ${invite.coachId}, Found: ${!!coach}) or Client (ID: ${newUser?._id}, Found: ${!!newUser}) not found after creation.`);
-       // This is a serious state inconsistency. Registration technically succeeded, but linking failed.
+      console.error(`[RegisterUser] Critical linking failure: Coach (ID: ${invite.coachId}, Found: ${!!coach}) or Client (ID: ${client?._id}, Found: ${!!client}) not found.`);
+      // This should ideally not happen if user creation succeeded. Log heavily.
        // Decide on recovery strategy: Allow login but log error? Attempt cleanup?
     }
 
