@@ -22,8 +22,9 @@ export const registerUser = asyncHandler(async (req, res) => {
     console.log('[RegisterUser] Attempting registration via invite token:', inviteToken); // Log the token received
 
     // 1. Validate Invite Token
+    console.log(`[RegisterUser] inviteToken type: ${typeof inviteToken}, length: ${inviteToken?.length}`); // Log type and length
     const invite = await Invite.findOne({
-      token: inviteToken,
+      inviteToken: inviteToken, // Correct field name from Invite model
       status: 'Pending',
       expiresAt: { $gt: new Date() },
     });
