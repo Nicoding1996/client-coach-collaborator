@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { SessionType } from '@/pages/coach/Sessions'; // Import the actual type
 import { DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { authAPI } from '@/services/api';
 
+// Removed local SessionType definition
+
 // Define props interface for type safety
 interface ScheduleSessionFormProps {
-  onSuccess: () => void;
+  onSuccess: (newSession: SessionType) => void; // Pass the new session object
   onClose: () => void;
 }
 
@@ -17,6 +20,7 @@ interface Client {
   _id?: string;
   id?: string; // Allow for potential 'id' property
   name: string;
+  avatar?: string; // Add optional avatar property
 }
 
 
@@ -45,10 +49,13 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
   }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    console.log('handleSubmit called'); // Log: Function start
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    // Log form data before validation
+    console.log('Form Data:', { clientId, sessionDate, startTime, endTime, location, notes });
     // Ensure sessionDate is defined before proceeding
     if (!clientId || !sessionDate || !startTime || !endTime || !location) {
        setError("Please fill in all required fields.");
@@ -66,9 +73,40 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
        notes,
       };
       console.log('Submitting sessionData:', sessionData);
-      await authAPI.createSession(sessionData); // API expects Date object
-      console.log('Session created successfully');
-      onSuccess();
+      console.log('Submitting to API...'); // Log: Before API call
+      const createdSessionResponse = await authAPI.createSession(sessionData); // API expects Date object
+      console.log('Session created successfully:', createdSessionResponse);
+
+      // Find client details
+      const client = clients.find(c => (c._id || c.id) === clientId);
+      const clientName = client ? client.name : 'Unknown Client';
+      // Assuming client data might have an avatar property, otherwise default/omit
+      const clientAvatar = client?.avatar || undefined; // Access optional property safely
+
+      // Calculate duration (simple example, might need refinement)
+      // This requires parsing times, which can be complex.
+      // Let's assume the API response includes duration or handle it later if needed.
+      // For now, let's set a placeholder or use a value from response if available.
+      const duration = createdSessionResponse.duration || 0; // Assuming response has duration
+
+      // Construct the object matching the imported SessionType for optimistic update
+      // Ensure all required fields from the imported SessionType are included
+      const newSession: SessionType = {
+        _id: createdSessionResponse._id,
+        clientName: clientName,
+        sessionDate: createdSessionResponse.sessionDate, // Use correct property name
+        // The imported SessionType might require 'time' and 'type'.
+        // We made them optional in Sessions.tsx, so this should be okay.
+        // If not, we'll need to adjust the construction here or the type in Sessions.tsx again.
+        time: createdSessionResponse.startTime, // Use startTime as placeholder for time if needed
+        // Removed startTime and endTime as they are not in SessionType
+        duration: duration,
+        type: createdSessionResponse.type || 'Default', // Provide a default type or get from response
+        notes: createdSessionResponse.notes,
+        clientAvatar: clientAvatar,
+      };
+
+      onSuccess(newSession); // Pass the constructed object
     } catch (err: unknown) { // Use unknown type for the error
       console.error('Failed to create session:', err);
       // Type guard to safely access error message
@@ -99,10 +137,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
           <Label htmlFor="date">Date</Label>
           <DatePicker
             date={sessionDate}
-            onDateChange={(newDate) => {
-              console.log('DatePicker onDateChange triggered with:', newDate); // Log the date change
-              setSessionDate(newDate);
-            }}
+            onDateChange={setSessionDate} // Revert to direct state setter
           />
         </div>
         <form id="schedule-session-form" onSubmit={handleSubmit} className="grid gap-4"> {/* Remove py-4 from form */}
@@ -150,13 +185,16 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
             <Label htmlFor="notes">Notes</Label>
             <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional session notes" />
           </div>
+
+          {/* Buttons moved inside the form */}
+          <div className="flex justify-end gap-2 pt-4">
+            {error && <p className="text-red-500 text-sm mr-auto">{error}</p>} {/* Error message moved here */}
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitDisabled}>{loading ? 'Scheduling...' : 'Schedule Session'}</Button> {/* Removed form attribute, now implicitly part of form */}
+          </div>
         </form>
       </DialogContent>
-      <DialogFooter>
-        {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
-        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-        <Button type="submit" form="schedule-session-form" disabled={isSubmitDisabled}>{loading ? 'Scheduling...' : 'Schedule Session'}</Button>
-      </DialogFooter>
+      {/* DialogFooter removed */}
     </>
   );
 };

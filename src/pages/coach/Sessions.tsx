@@ -7,7 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Filter, Plus, Video, Clock, FileText, ArrowRight } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns"; // Removed unused date-fns functions
 import { cn } from "@/lib/utils";
 import { authAPI } from "@/services/api";
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
@@ -17,15 +17,15 @@ import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker f
 import { toast } from 'sonner'; 
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
 
-interface SessionType {
-  id: string;
-  clientName: string;
-  date: string;
-  time: string;
+export interface SessionType { // Export the interface
+  _id: string; // Match backend data structure
+  clientName?: string; // Make optional to handle backend data
+  sessionDate: string; // Match backend property name
+  time?: string; // Made optional
   duration: number;
-  type: string;
+  type?: string; // Made optional
   notes: string;
-  clientAvatar: string;
+  clientAvatar?: string; // Made optional
 }
 
 const CoachSessions = () => {
@@ -57,16 +57,12 @@ const CoachSessions = () => {
     fetchSessions();
   }, []);
 
-  const handleSessionCreated = () => {
+  // Updated to accept the newly created session object for optimistic update
+  const handleSessionCreated = (newSession: SessionType) => {
     setDialogOpen(false);
-    setLoading(true);
-    authAPI.getSessions().then(data => {
-      setSessions(data);
-      setLoading(false);
-    }).catch(error => {
-      console.error("Failed to re-fetch sessions:", error);
-      setLoading(false);
-    });
+    // Add the new session directly to the state
+    setSessions(prevSessions => [...prevSessions, newSession]);
+    toast("Session scheduled successfully!"); // Update toast message
   };
 
   const handleViewNotes = async (sessionId: string) => {
@@ -93,7 +89,7 @@ const CoachSessions = () => {
       setNotesDialogOpen(false);
       // Optionally update the session notes in the main list
       setSessions(prevSessions => prevSessions.map(session =>
-        session.id === selectedSessionId ? { ...session, notes: editedNotes } : session
+        session._id === selectedSessionId ? { ...session, notes: editedNotes } : session
       ));
     } catch (error) {
       toast('Failed to update notes');
@@ -122,7 +118,7 @@ const CoachSessions = () => {
     try {
       await authAPI.deleteSession(sessionToDelete);
       toast('Session deleted successfully');
-      setSessions(prevSessions => prevSessions.filter(session => session.id !== sessionToDelete));
+      setSessions(prevSessions => prevSessions.filter(session => session._id !== sessionToDelete));
     } catch (error) {
       toast('Failed to delete session');
     } finally {
@@ -132,10 +128,75 @@ const CoachSessions = () => {
     }
   };
 
-  const upcomingSessions = sessions.filter(session => new Date(session.date) > new Date());
-  const pastSessions = sessions.filter(session => new Date(session.date) <= new Date());
+  // console.log('Sessions state updated:', sessions); // Removed log
+  // Refined filtering logic to compare dates only
+  const todayString = format(new Date(), 'yyyy-MM-dd'); // Get today's date string
 
-  const getInitials = (name: string) => {
+  const upcomingSessions = sessions.filter(session => {
+    // The existing if check
+    if (!session) { // Absolute minimal check: just ensure session exists
+       // console.error(`Skipping session with invalid/missing fields for upcoming filter:`, session); // Removed log
+       return false;
+    }
+    try {
+      // Add Pre-Parse Check Inside try Block exactly as requested
+      if (typeof session.sessionDate !== 'string' || !session.sessionDate) { // Use sessionDate
+        // console.warn(`[Filter Internal] Session ${session._id} has invalid date string: ${session.sessionDate}`); // Optional
+        return false; // Exclude sessions with invalid date strings before parsing
+      }
+      const parsedSessionDate = parseISO(session.sessionDate); // Use sessionDate
+
+      if (isNaN(parsedSessionDate.getTime())) {
+         // console.error(`[Filter Debug Upcoming] Failed to parse date for session ID ${session._id}: ${session.sessionDate}`); // Removed log
+         return false;
+      }
+
+      const sessionDateString = format(parsedSessionDate, 'yyyy-MM-dd');
+      const isUpcoming = sessionDateString >= todayString;
+
+      // Comparison log already commented
+
+      return isUpcoming;
+    } catch (e) {
+      // console.error(`[Filter Error Upcoming] Session ${session._id} Date='${session.sessionDate}'`, e); // Removed log
+      return false;
+    }
+  });
+  // console.log('Filtered Upcoming:', upcomingSessions); // Removed log
+  const pastSessions = sessions.filter(session => {
+      // The existing if check
+     if (!session) { // Absolute minimal check: just ensure session exists
+       // console.error(`Skipping session with invalid/missing fields for past filter:`, session); // Removed log
+       return false;
+     }
+     try {
+      // Add Pre-Parse Check Inside try Block exactly as requested
+      if (typeof session.sessionDate !== 'string' || !session.sessionDate) { // Use sessionDate
+        // console.warn(`[Filter Internal] Session ${session._id} has invalid date string: ${session.sessionDate}`); // Optional
+        return false; // Exclude sessions with invalid date strings before parsing
+      }
+      const parsedSessionDate = parseISO(session.sessionDate); // Use sessionDate
+
+      if (isNaN(parsedSessionDate.getTime())) {
+         // console.error(`[Filter Debug Past] Failed to parse date for session ID ${session._id}: ${session.sessionDate}`); // Removed log
+         return false;
+      }
+
+      const sessionDateString = format(parsedSessionDate, 'yyyy-MM-dd');
+      const isPast = sessionDateString < todayString;
+
+      // Comparison log already commented
+
+      return isPast;
+     } catch (e) {
+       // console.error(`[Filter Error Past] Session ${session._id} Date='${session.sessionDate}'`, e); // Removed log
+       return false;
+     }
+  });
+  // console.log('Filtered Past:', pastSessions); // Removed log
+
+  const getInitials = (name: string | undefined | null) => { // Allow potentially invalid name types
+    if (typeof name !== 'string' || !name) return '?'; // Return '?' for invalid input
     return name
       .split(" ")
       .map(part => part[0])
@@ -143,7 +204,8 @@ const CoachSessions = () => {
       .toUpperCase();
   };
   
-  const formatSessionDate = (date: Date) => {
+  const formatSessionDate = (date: Date | undefined | null) => { // Allow potentially invalid date inputs
+    if (!date || isNaN(date.getTime())) return "Invalid Date"; // Check for invalid date object
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -171,25 +233,15 @@ const CoachSessions = () => {
             </Button>
           </div>
 
-          {/* --- Test DatePicker START --- */}
-          <div className="my-4 p-4 border rounded bg-secondary/10">
-             <h3 className="text-lg font-semibold mb-2">Test DatePicker (Standalone):</h3>
-             <DatePicker date={testDate} onDateChange={setTestDate} />
-             <p className="text-sm mt-2">Selected Test Date: {testDate ? format(testDate, "PPP") : "None"}</p>
-          </div>
-          {/* --- Test DatePicker END --- */}
-
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent>
               <ScheduleSessionForm onSuccess={handleSessionCreated} onClose={() => setDialogOpen(false)} /> {/* Removed initialData, added onClose */}
-            </DialogContent>
           </Dialog>
           <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
             <DialogContent>
               {selectedSessionData && (
                 <div>
                   <h2>{selectedSessionData.clientName}</h2>
-                  <p>{formatSessionDate(new Date(selectedSessionData.date))}</p>
+                  <p>{formatSessionDate(new Date(selectedSessionData.sessionDate))}</p> // Use sessionDate
                   <Textarea value={editedNotes} onChange={(e) => setEditedNotes(e.target.value)} />
                 </div>
               )}
@@ -225,50 +277,53 @@ const CoachSessions = () => {
                   </Button>
                 </div>
                 <TabsContent value="upcoming" className="space-y-4">
-                  {upcomingSessions.map((session) => (
-                    <Card key={session.id} className="hover-lift">
-                      <CardContent className="p-6">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex items-center">
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={session.clientAvatar} alt={session.clientName} />
-                              <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
-                            </Avatar>
-                            <div className="ml-4">
-                              <h3 className="font-medium">{session.clientName}</h3>
-                              <div className="flex items-center mt-1">
-                                <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                                <p className="text-sm text-muted-foreground">
-                                  {formatSessionDate(new Date(session.date))} • {session.duration} min
-                                </p>
+                  {upcomingSessions.map((session) => { // Keep block for log
+                    // console.log('Rendering Upcoming Session:', session._id); // Removed log
+                    return ( // Now use implicit return for JSX
+                      <Card key={session._id} className="hover-lift">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center">
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={session.clientAvatar} alt={session.clientName} />
+                                <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
+                              </Avatar>
+                              <div className="ml-4">
+                                <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
+                                <div className="flex items-center mt-1">
+                                  <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                                  <p className="text-sm text-muted-foreground">
+                                    {formatSessionDate(new Date(session.sessionDate))} • {session.duration} min // Use sessionDate
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+                              <Badge variant="outline" className="md:ml-auto">{session.type}</Badge>
+                              <div className="flex items-center gap-2 w-full md:w-auto">
+                                <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleViewNotes(session._id)}>
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  View Notes
+                                </Button>
+                                <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleEditSession(session._id)}>
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Button>
+                                <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => { setSessionToDelete(session._id); setDeleteDialogOpen(true); }}>
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Delete
+                                </Button>
                               </div>
                             </div>
                           </div>
-                          <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
-                            <Badge variant="outline" className="md:ml-auto">{session.type}</Badge>
-                            <div className="flex items-center gap-2 w-full md:w-auto">
-                              <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleViewNotes(session.id)}>
-                                <FileText className="mr-2 h-4 w-4" />
-                                View Notes
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleEditSession(session.id)}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Edit
-                              </Button>
-                              <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => { setSessionToDelete(session.id); setDeleteDialogOpen(true); }}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ); // Closing parenthesis for return
+                  })} {/* CORRECT Closing brace for map block and parenthesis for map call */}
                 </TabsContent>
                 <TabsContent value="past" className="space-y-4">
                   {pastSessions.map((session) => (
-                    <Card key={session.id} className="hover-lift">
+                    <Card key={session._id} className="hover-lift">
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex items-center">
@@ -277,26 +332,26 @@ const CoachSessions = () => {
                               <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
                             </Avatar>
                             <div className="ml-4">
-                              <h3 className="font-medium">{session.clientName}</h3>
+                              <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
                               <div className="flex items-center mt-1">
                                 <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
                                 <p className="text-sm text-muted-foreground">
-                                  {format(new Date(session.date), "MMM d, h:mm a")} • {session.duration} min
+                                  {format(new Date(session.sessionDate), "MMM d, h:mm a")} • {session.duration} min // Use sessionDate
                                 </p>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
                             <Badge variant="outline" className="md:ml-auto">{session.type}</Badge>
-                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleViewNotes(session.id)}>
+                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleViewNotes(session._id)}>
                               <FileText className="mr-2 h-4 w-4" />
                               View Notes
                             </Button>
-                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleEditSession(session.id)}>
+                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => handleEditSession(session._id)}>
                               <Plus className="mr-2 h-4 w-4" />
                               Edit
                             </Button>
-                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => { setSessionToDelete(session.id); setDeleteDialogOpen(true); }}>
+                            <Button variant="outline" size="sm" className="w-full md:w-auto" onClick={() => { setSessionToDelete(session._id); setDeleteDialogOpen(true); }}>
                               <Plus className="mr-2 h-4 w-4" />
                               Delete
                             </Button>
@@ -345,14 +400,14 @@ const CoachSessions = () => {
                   
                   {upcomingSessions
                     .filter(session => 
-                      date && format(new Date(session.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                      date && format(new Date(session.sessionDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd") // Use sessionDate
                     )
                     .map((session) => (
-                      <div key={session.id} className="flex items-center justify-between border-b last:border-b-0 py-3">
+                      <div key={session._id} className="flex items-center justify-between border-b last:border-b-0 py-3">
                         <div>
-                          <p className="font-medium text-sm">{session.clientName}</p>
+                          <p className="font-medium text-sm">{session.clientName || 'Unknown Client'}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(session.date), "h:mm a")} • {session.duration} min
+                            {format(new Date(session.sessionDate), "h:mm a")} • {session.duration} min // Use sessionDate
                           </p>
                         </div>
                         <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
@@ -362,7 +417,7 @@ const CoachSessions = () => {
                     ))}
                   
                   {upcomingSessions.filter(session => 
-                    date && format(new Date(session.date), "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
+                    date && format(new Date(session.sessionDate), "yyyy-MM-dd") === format(date, "yyyy-MM-dd") // Use sessionDate
                   ).length === 0 && (
                     <div className="py-3 text-center">
                       <p className="text-sm text-muted-foreground">No sessions scheduled</p>
