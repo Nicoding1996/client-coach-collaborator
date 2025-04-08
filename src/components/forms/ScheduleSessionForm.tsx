@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { differenceInMinutes, parse, format } from 'date-fns'; // Import date-fns functions
 import type { SessionType } from '@/pages/coach/Sessions'; // Import the actual type
 import { DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,8 +13,9 @@ import { authAPI } from '@/services/api';
 
 // Define props interface for type safety
 interface ScheduleSessionFormProps {
-  onSuccess: (newSession: SessionType) => void; // Pass the new session object
+  onSuccess: (newOrUpdatedSession: SessionType) => void; // Pass the session object
   onClose: () => void;
+  initialData?: SessionType | null; // Add optional initialData prop for editing
 }
 
 interface Client {
@@ -24,7 +26,7 @@ interface Client {
 }
 
 
-const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, onClose }) => {
+const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, onClose, initialData }) => {
   const [clientId, setClientId] = useState('');
   const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
   const [startTime, setStartTime] = useState('');
@@ -48,7 +50,32 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
     fetchClients();
   }, []);
 
+  // Effect to pre-fill form when editing (initialData changes)
+  useEffect(() => {
+    if (initialData) {
+      // Need to find the clientId from the initialData if it's not directly available
+      // Assuming initialData might have clientId directly or nested within client object
+      // Rely on the clientId property from the SessionType interface
+      const initialClientId = initialData.clientId;
+      setClientId(initialClientId || ''); // Set to empty string if clientId is missing/undefined in initialData
+      setSessionDate(initialData.sessionDate ? new Date(initialData.sessionDate) : undefined);
+      setStartTime(initialData.startTime || '');
+      setEndTime(initialData.endTime || '');
+      setLocation(initialData.location || '');
+      setNotes(initialData.notes || '');
+    } else {
+      // Reset form if initialData is null/undefined (e.g., switching from edit to add)
+      setClientId('');
+      setSessionDate(undefined);
+      setStartTime('');
+      setEndTime('');
+      setLocation('');
+      setNotes('');
+    }
+  }, [initialData]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const isEditing = !!initialData; // Check if we are editing
     console.log('handleSubmit called'); // Log: Function start
     e.preventDefault();
     setLoading(true);
@@ -74,39 +101,67 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
       };
       console.log('Submitting sessionData:', sessionData);
       console.log('Submitting to API...'); // Log: Before API call
-      const createdSessionResponse = await authAPI.createSession(sessionData); // API expects Date object
-      console.log('Session created successfully:', createdSessionResponse);
+      let responseData;
+      if (isEditing) {
+        console.log('Updating session:', initialData._id, sessionData);
+        // Ensure you have an updateSession function in authAPI
+        responseData = await authAPI.updateSession(initialData._id, sessionData);
+        console.log('Session updated successfully:', responseData);
+      } else {
+        console.log('Creating session:', sessionData);
+        responseData = await authAPI.createSession(sessionData);
+        console.log('Session created successfully:', responseData);
+      }
 
-      // Find client details
-      const client = clients.find(c => (c._id || c.id) === clientId);
+      // Find client details based on CURRENT form state clientId
+      const client = clients.find(c => (c._id || c.id) === clientId); // Use clientId from state
       const clientName = client ? client.name : 'Unknown Client';
-      // Assuming client data might have an avatar property, otherwise default/omit
-      const clientAvatar = client?.avatar || undefined; // Access optional property safely
+      const clientAvatar = client?.avatar || undefined;
 
-      // Calculate duration (simple example, might need refinement)
-      // This requires parsing times, which can be complex.
-      // Let's assume the API response includes duration or handle it later if needed.
-      // For now, let's set a placeholder or use a value from response if available.
-      const duration = createdSessionResponse.duration || 0; // Assuming response has duration
+      // Prioritize response data for backend-managed fields, fallback carefully
+      const finalSessionDate = responseData.sessionDate || (sessionData.sessionDate ? sessionData.sessionDate.toISOString() : new Date().toISOString()); // Ensure a valid date string
+      const finalStartTime = responseData.startTime || sessionData.startTime;
+      const finalEndTime = responseData.endTime || sessionData.endTime;
+      const finalLocation = responseData.location || sessionData.location;
+      // Calculate duration from startTime and endTime state
+      let calculatedDuration: number | undefined = undefined;
+      if (sessionDate && startTime && endTime) {
+        try {
+          // Create Date objects using the sessionDate and the time strings
+          const startDateTime = parse(`${format(sessionDate, 'yyyy-MM-dd')} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date());
+          const endDateTime = parse(`${format(sessionDate, 'yyyy-MM-dd')} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date());
 
-      // Construct the object matching the imported SessionType for optimistic update
-      // Ensure all required fields from the imported SessionType are included
-      const newSession: SessionType = {
-        _id: createdSessionResponse._id,
-        clientName: clientName,
-        sessionDate: createdSessionResponse.sessionDate, // Use correct property name
-        // The imported SessionType might require 'time' and 'type'.
-        // We made them optional in Sessions.tsx, so this should be okay.
-        // If not, we'll need to adjust the construction here or the type in Sessions.tsx again.
-        time: createdSessionResponse.startTime, // Use startTime as placeholder for time if needed
-        // Removed startTime and endTime as they are not in SessionType
-        duration: duration,
-        type: createdSessionResponse.type || 'Default', // Provide a default type or get from response
-        notes: createdSessionResponse.notes,
+          if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime())) {
+            calculatedDuration = differenceInMinutes(endDateTime, startDateTime);
+             // Handle cases where end time is on the next day (optional, depends on requirements)
+             if (calculatedDuration < 0) {
+               calculatedDuration += 24 * 60; // Add 24 hours in minutes
+             }
+          }
+        } catch (parseError) {
+          console.error("Error calculating duration:", parseError);
+        }
+      }
+      const finalDuration = calculatedDuration; // Use calculated duration
+      const finalType = responseData.type !== undefined ? responseData.type : (initialData?.type); // Keep optional
+
+      const resultSession: SessionType = {
+        _id: responseData._id || initialData!._id, // Need initialData._id if editing
+        clientId: clientId, // Use clientId from form state
+        clientName: clientName, // Use looked-up name based on form state clientId
+        sessionDate: finalSessionDate,
+        startTime: finalStartTime,
+        endTime: finalEndTime,
+        // time: finalStartTime, // Keep time optional or remove if not needed
+        duration: finalDuration, // Assign optional duration
+        type: finalType,         // Assign optional type
+        location: finalLocation,
+        notes: notes, // *** Use notes directly from form state ***
         clientAvatar: clientAvatar,
       };
 
-      onSuccess(newSession); // Pass the constructed object
+      // Log removed
+      onSuccess(resultSession); // Pass the constructed object
     } catch (err: unknown) { // Use unknown type for the error
       console.error('Failed to create session:', err);
       // Type guard to safely access error message
@@ -116,7 +171,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
       } else if (typeof err === 'string') {
         errorMessage = err;
       }
-      setError(`Failed to create session: ${errorMessage}`);
+      setError(`Failed to ${isEditing ? 'update' : 'create'} session: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -128,7 +183,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Schedule a Session</DialogTitle>
+        <DialogTitle>{initialData ? 'Edit Session' : 'Schedule a Session'}</DialogTitle>
         <DialogDescription>Fill out the form below to schedule a new session.</DialogDescription>
       </DialogHeader>
       <DialogContent className="grid gap-4 py-4"> {/* Apply grid to DialogContent */}
@@ -190,7 +245,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
           <div className="flex justify-end gap-2 pt-4">
             {error && <p className="text-red-500 text-sm mr-auto">{error}</p>} {/* Error message moved here */}
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitDisabled}>{loading ? 'Scheduling...' : 'Schedule Session'}</Button> {/* Removed form attribute, now implicitly part of form */}
+            <Button type="submit" disabled={isSubmitDisabled}>{loading ? (initialData ? 'Updating...' : 'Scheduling...') : (initialData ? 'Update Session' : 'Schedule Session')}</Button>
           </div>
         </form>
       </DialogContent>

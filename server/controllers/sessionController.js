@@ -43,8 +43,9 @@ export const getMySessions = asyncHandler(async (req, res) => {
       { clientId: req.user._id }
     ]
   })
-  .populate('clientId', 'name avatar') // Populate client info
-  .populate('coachId', 'name avatar') // Populate coach info
+  // REMOVED: .populate('clientId', 'name avatar')
+  .populate('coachId', 'name avatar') // Keep coach populate if needed
+  .lean() // Add lean()
   .sort({ sessionDate: -1 }); // Sort by date descending
 
   res.json(sessions);

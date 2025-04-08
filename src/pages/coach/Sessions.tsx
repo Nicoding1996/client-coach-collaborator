@@ -7,7 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Filter, Plus, Video, Clock, FileText, ArrowRight } from "lucide-react";
-import { format, parseISO } from "date-fns"; // Removed unused date-fns functions
+import { format, parseISO, differenceInMinutes, parse } from "date-fns"; // Add functions for duration calculation
 import { cn } from "@/lib/utils";
 import { authAPI } from "@/services/api";
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
@@ -16,14 +16,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker for testing
 import { toast } from 'sonner'; 
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
+// Define Client type locally (or move to a shared types file)
+interface Client {
+  _id?: string;
+  id?: string;
+  name: string;
+  avatar?: string;
+}
 
 export interface SessionType { // Export the interface
   _id: string; // Match backend data structure
+  clientId?: string; // Add clientId (might be needed for edit form) - make optional?
   clientName?: string; // Make optional to handle backend data
   sessionDate: string; // Match backend property name
-  time?: string; // Made optional
-  duration: number;
+  startTime?: string; // Add startTime
+  endTime?: string;   // Add endTime
+  time?: string; // Made optional - maybe remove if startTime/endTime cover it? Keep for now.
+  duration?: number; // Made optional
   type?: string; // Made optional
+  location?: string; // Add location
   notes: string;
   clientAvatar?: string; // Made optional
 }
@@ -42,27 +53,89 @@ const CoachSessions = () => {
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [testDate, setTestDate] = useState<Date | undefined>(undefined); // State for test DatePicker
   
-  useEffect(() => {
-    const fetchSessions = async () => {
+  // Fetch sessions and clients on initial load
+   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const data = await authAPI.getSessions();
-        setSessions(data);
+        // Fetch both sessions and clients concurrently
+        const [sessionsData, clientsData]: [SessionType[], Client[]] = await Promise.all([ // Type the responses
+          authAPI.getSessions(),
+          authAPI.getClients() // Assuming you have this function in authAPI
+        ]);
+
+        // --- Data Augmentation ---
+        // Create a map for quick client lookup using the Client type
+        const clientsMap = new Map<string, Client>(
+           clientsData.map(client => [client._id || client.id || 'invalid-id', client]) // Use defined type, provide fallback key
+        );
+
+        const processedSessions = sessionsData.map(session => {
+              const client = session.clientId ? clientsMap.get(session.clientId) : undefined; // Safely get client
+              console.log(`[Data Augmentation] Session: ${session._id}, ClientID: ${session.clientId}, Found Client:`, client);
+
+              // --- Add Duration Calculation Here ---
+              let calculatedDuration: number | undefined = undefined;
+              // Ensure startTime and endTime exist and sessionDate is valid before calculating
+              if (session.sessionDate && typeof session.startTime === 'string' && typeof session.endTime === 'string') {
+                  try {
+                      // Use parseISO for the date part, combine with time strings
+                      const baseDateStr = format(parseISO(session.sessionDate), 'yyyy-MM-dd');
+                      const startDateTime = parse(`${baseDateStr} ${session.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                      const endDateTime = parse(`${baseDateStr} ${session.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+
+                      if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime())) {
+                          calculatedDuration = differenceInMinutes(endDateTime, startDateTime);
+                          if (calculatedDuration < 0) {
+                              calculatedDuration += 24 * 60; // Handle overnight
+                          }
+                      }
+                  } catch (parseError) {
+                      console.error(`Error calculating duration for session ${session._id}:`, parseError);
+                  }
+              }
+              // --- End Duration Calculation ---
+
+              return {
+                ...session,
+                clientName: client ? client.name : 'Unknown Client',
+                clientAvatar: client ? client.avatar : undefined,
+                duration: calculatedDuration // Add the calculated duration
+              };
+            });
+        // --- End Data Augmentation ---
+
+        setSessions(processedSessions); // Set state with augmented data
+
       } catch (error) {
-        console.error("Failed to fetch sessions:", error);
+        console.error("Failed to fetch initial data:", error);
+        toast.error("Failed to load session data."); // Notify user
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSessions();
+    fetchData();
   }, []);
 
   // Updated to accept the newly created session object for optimistic update
-  const handleSessionCreated = (newSession: SessionType) => {
+  // Renamed and updated to handle both create and update
+  const handleSessionSaved = (savedSession: SessionType) => {
     setDialogOpen(false);
-    // Add the new session directly to the state
-    setSessions(prevSessions => [...prevSessions, newSession]);
-    toast("Session scheduled successfully!"); // Update toast message
+    setSessions(prevSessions => {
+      const existingIndex = prevSessions.findIndex(s => s._id === savedSession._id);
+      if (existingIndex > -1) {
+        // Update existing session
+        const updatedSessions = [...prevSessions];
+        updatedSessions[existingIndex] = savedSession;
+        return updatedSessions;
+      } else {
+        // Add new session
+        return [...prevSessions, savedSession];
+      }
+    });
+    toast("Session saved successfully!"); // Generic success message
+    setSelectedSessionData(null); // Clear selection after save
   };
 
   const handleViewNotes = async (sessionId: string) => {
@@ -161,7 +234,8 @@ const CoachSessions = () => {
       // console.error(`[Filter Error Upcoming] Session ${session._id} Date='${session.sessionDate}'`, e); // Removed log
       return false;
     }
-  });
+  })
+  .sort((a, b) => parseISO(a.sessionDate).getTime() - parseISO(b.sessionDate).getTime()); // Sort upcoming ascending (Remove duplicate sort)
   // console.log('Filtered Upcoming:', upcomingSessions); // Removed log
   const pastSessions = sessions.filter(session => {
       // The existing if check
@@ -192,7 +266,8 @@ const CoachSessions = () => {
        // console.error(`[Filter Error Past] Session ${session._id} Date='${session.sessionDate}'`, e); // Removed log
        return false;
      }
-  });
+  })
+  .sort((a, b) => parseISO(b.sessionDate).getTime() - parseISO(a.sessionDate).getTime()); // Sort past descending (Remove duplicate sort)
   // console.log('Filtered Past:', pastSessions); // Removed log
 
   const getInitials = (name: string | undefined | null) => { // Allow potentially invalid name types
@@ -204,21 +279,7 @@ const CoachSessions = () => {
       .toUpperCase();
   };
   
-  const formatSessionDate = (date: Date | undefined | null) => { // Allow potentially invalid date inputs
-    if (!date || isNaN(date.getTime())) return "Invalid Date"; // Check for invalid date object
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return `Today, ${format(date, "h:mm a")}`;
-    } else if (date.toDateString() === tomorrow.toDateString()) {
-      return `Tomorrow, ${format(date, "h:mm a")}`;
-    } else {
-      return format(date, "MMM d, h:mm a");
-    }
-  };
-
+  // Removed formatSessionDate function as it's no longer needed for list display
   return (
     <div className="space-y-8 animate-fadeIn">
       {loading ? (
@@ -234,14 +295,19 @@ const CoachSessions = () => {
           </div>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <ScheduleSessionForm onSuccess={handleSessionCreated} onClose={() => setDialogOpen(false)} /> {/* Removed initialData, added onClose */}
+              <ScheduleSessionForm
+                onSuccess={handleSessionSaved} // Use renamed function
+                onClose={() => { setDialogOpen(false); setSelectedSessionData(null); }} // Clear selection on close
+                initialData={selectedSessionData} // Pass selected data for editing
+              />
           </Dialog>
           <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
             <DialogContent>
               {selectedSessionData && (
                 <div>
                   <h2>{selectedSessionData.clientName}</h2>
-                  <p>{formatSessionDate(new Date(selectedSessionData.sessionDate))}</p> // Use sessionDate
+                  {/* Use standard format for date display */}
+                  <p>{format(parseISO(selectedSessionData.sessionDate), 'MMM d, yyyy')} {selectedSessionData.startTime ? `• ${selectedSessionData.startTime}` : ''}</p>
                   <Textarea value={editedNotes} onChange={(e) => setEditedNotes(e.target.value)} />
                 </div>
               )}
@@ -277,9 +343,9 @@ const CoachSessions = () => {
                   </Button>
                 </div>
                 <TabsContent value="upcoming" className="space-y-4">
-                  {upcomingSessions.map((session) => { // Keep block for log
-                    // console.log('Rendering Upcoming Session:', session._id); // Removed log
-                    return ( // Now use implicit return for JSX
+                  {upcomingSessions.map((session) => {
+                     // Log removed
+                     return (
                       <Card key={session._id} className="hover-lift">
                         <CardContent className="p-6">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -292,8 +358,9 @@ const CoachSessions = () => {
                                 <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
                                 <div className="flex items-center mt-1">
                                   <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
+                                  {/* Updated display format */}
                                   <p className="text-sm text-muted-foreground">
-                                    {formatSessionDate(new Date(session.sessionDate))} • {session.duration} min // Use sessionDate
+                                     {format(parseISO(session.sessionDate), 'MMM d, yyyy')} • {session.startTime || 'N/A'} {session.duration ? `(${session.duration} Mins)` : ''} {/* Corrected duration format */}
                                   </p>
                                 </div>
                               </div>
@@ -322,7 +389,9 @@ const CoachSessions = () => {
                   })} {/* CORRECT Closing brace for map block and parenthesis for map call */}
                 </TabsContent>
                 <TabsContent value="past" className="space-y-4">
-                  {pastSessions.map((session) => (
+                  {pastSessions.map((session) => {
+                     // Log removed
+                     return ( // Ensure explicit return for block body
                     <Card key={session._id} className="hover-lift">
                       <CardContent className="p-6">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -335,9 +404,10 @@ const CoachSessions = () => {
                               <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
                               <div className="flex items-center mt-1">
                                 <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                                <p className="text-sm text-muted-foreground">
-                                  {format(new Date(session.sessionDate), "MMM d, h:mm a")} • {session.duration} min // Use sessionDate
-                                </p>
+                                 {/* Updated display format */}
+                                 <p className="text-sm text-muted-foreground">
+                                     {format(parseISO(session.sessionDate), 'MMM d, yyyy')} • {session.startTime || 'N/A'} {session.duration ? `(${session.duration} Mins)` : ''} {/* Corrected duration format */}
+                                 </p>
                               </div>
                             </div>
                           </div>
@@ -359,7 +429,8 @@ const CoachSessions = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                  ); // Close explicit return
+                 })}
                 </TabsContent>
               </Tabs>
             </div>
@@ -407,7 +478,7 @@ const CoachSessions = () => {
                         <div>
                           <p className="font-medium text-sm">{session.clientName || 'Unknown Client'}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(session.sessionDate), "h:mm a")} • {session.duration} min // Use sessionDate
+                             {session.startTime || 'N/A'} {session.duration ? `• ${session.duration} min` : ''} {/* Updated calendar display */}
                           </p>
                         </div>
                         <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
