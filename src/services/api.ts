@@ -207,7 +207,7 @@ export const authAPI = {
     }
   },
 
-  createSession: async (sessionData: { clientId: string; sessionDate: Date; time: string; duration: number; focusTopic: string }) => {
+  createSession: async (sessionData: { clientId: string; sessionDate: Date | undefined; startTime: string; endTime: string; location: string; notes: string }) => {
     try {
       const response = await api.post('/sessions', sessionData);
       return response.data;

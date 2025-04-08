@@ -75,7 +75,7 @@ const CoachClients = () => {
       
       <div className="grid gap-6">
         {clients.map((client) => (
-          <Card key={client.id} className="hover-lift">
+          <Card key={client._id || client.id} className="hover-lift"> {/* Use client._id or client.id as key */}
             <CardContent className="p-6">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-center">

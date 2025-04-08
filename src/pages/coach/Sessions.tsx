@@ -13,6 +13,7 @@ import { authAPI } from "@/services/api";
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import ScheduleSessionForm from '@/components/forms/ScheduleSessionForm';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker for testing
 import { toast } from 'sonner'; 
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
 
@@ -39,6 +40,7 @@ const CoachSessions = () => {
   const [notesLoading, setNotesLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [testDate, setTestDate] = useState<Date | undefined>(undefined); // State for test DatePicker
   
   useEffect(() => {
     const fetchSessions = async () => {
@@ -168,9 +170,18 @@ const CoachSessions = () => {
               Schedule Session
             </Button>
           </div>
+
+          {/* --- Test DatePicker START --- */}
+          <div className="my-4 p-4 border rounded bg-secondary/10">
+             <h3 className="text-lg font-semibold mb-2">Test DatePicker (Standalone):</h3>
+             <DatePicker date={testDate} onDateChange={setTestDate} />
+             <p className="text-sm mt-2">Selected Test Date: {testDate ? format(testDate, "PPP") : "None"}</p>
+          </div>
+          {/* --- Test DatePicker END --- */}
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent>
-              <ScheduleSessionForm onSuccess={handleSessionCreated} initialData={selectedSessionData} />
+              <ScheduleSessionForm onSuccess={handleSessionCreated} onClose={() => setDialogOpen(false)} /> {/* Removed initialData, added onClose */}
             </DialogContent>
           </Dialog>
           <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>

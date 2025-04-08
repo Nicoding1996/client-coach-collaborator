@@ -2,88 +2,163 @@ import { useState, useEffect } from 'react';
 import { DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { DatePicker } from '@/components/ui/date-picker'; // Use hyphenated path
+import { DatePicker } from '@/components/ui/date-picker';
 import { authAPI } from '@/services/api';
 
-const ScheduleSessionForm = ({ onSuccess }) => {
+// Define props interface for type safety
+interface ScheduleSessionFormProps {
+  onSuccess: () => void;
+  onClose: () => void;
+}
+
+interface Client {
+  _id?: string;
+  id?: string; // Allow for potential 'id' property
+  name: string;
+}
+
+
+const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, onClose }) => {
   const [clientId, setClientId] = useState('');
-  const [sessionDate, setSessionDate] = useState(new Date());
-  const [time, setTime] = useState('');
-  const [duration, setDuration] = useState(0);
-  const [focusTopic, setFocusTopic] = useState('');
-  const [clients, setClients] = useState([]);
+  const [sessionDate, setSessionDate] = useState<Date | undefined>(undefined);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const data = await authAPI.getClients();
+        const data: Client[] = await authAPI.getClients();
         setClients(data);
-      } catch (error) {
-        console.error('Failed to fetch clients:', error);
+      } catch (err) {
+        console.error('Failed to fetch clients:', err);
+        setError('Failed to load client list.'); // Inform user
       }
     };
     fetchClients();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Ensure sessionDate is defined before proceeding
+    if (!clientId || !sessionDate || !startTime || !endTime || !location) {
+       setError("Please fill in all required fields.");
+       setLoading(false);
+       return;
+    }
+
     try {
       const sessionData = {
-        clientId,
-        sessionDate,
-        time,
-        duration,
-        focusTopic,
+       clientId,
+       sessionDate, // Pass Date object directly
+       startTime,
+       endTime,
+       location,
+       notes,
       };
-      await authAPI.createSession(sessionData);
+      console.log('Submitting sessionData:', sessionData);
+      await authAPI.createSession(sessionData); // API expects Date object
+      console.log('Session created successfully');
       onSuccess();
-    } catch (error) {
-      setError('Failed to create session');
+    } catch (err: unknown) { // Use unknown type for the error
+      console.error('Failed to create session:', err);
+      // Type guard to safely access error message
+      let errorMessage = 'Unknown error';
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      setError(`Failed to create session: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // Determine if the submit button should be disabled
+  const isSubmitDisabled = loading || !clientId || !sessionDate || !startTime || !endTime || !location;
+
   return (
-    <form onSubmit={handleSubmit}>
+    <>
       <DialogHeader>
         <DialogTitle>Schedule a Session</DialogTitle>
         <DialogDescription>Fill out the form below to schedule a new session.</DialogDescription>
       </DialogHeader>
-      <DialogContent>
-        <Label htmlFor="client">Client</Label>
-        <Select id="client" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-          <SelectContent>
-            {clients.map(client => (
-              <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <DialogContent className="grid gap-4 py-4"> {/* Apply grid to DialogContent */}
+        {/* Date Picker - Moved outside form */}
+        <div>
+          <Label htmlFor="date">Date</Label>
+          <DatePicker
+            date={sessionDate}
+            onDateChange={(newDate) => {
+              console.log('DatePicker onDateChange triggered with:', newDate); // Log the date change
+              setSessionDate(newDate);
+            }}
+          />
+        </div>
+        <form id="schedule-session-form" onSubmit={handleSubmit} className="grid gap-4"> {/* Remove py-4 from form */}
+          {/* Client Selection */}
+          <div>
+            <Label htmlFor="client">Client</Label>
+            <Select value={clientId} onValueChange={setClientId} required>
+              <SelectTrigger id="client">
+                <SelectValue placeholder="Select a client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients
+                  .filter((client) => (client._id || client.id))
+                  .map((client) => {
+                    const currentClientId = client._id || client.id;
+                    return (
+                      <SelectItem key={currentClientId} value={currentClientId!}>{client.name}</SelectItem>
+                    );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <Label htmlFor="date">Date</Label>
-        <DatePicker selected={sessionDate} onChange={setSessionDate} />
 
-        <Label htmlFor="time">Time</Label>
-        <Input id="time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          {/* Start Time */}
+          <div>
+            <Label htmlFor="startTime">Start Time</Label>
+            <Input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required />
+          </div>
 
-        <Label htmlFor="duration">Duration (minutes)</Label>
-        <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
+          {/* End Time */}
+          <div>
+            <Label htmlFor="endTime">End Time</Label>
+            <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required />
+          </div>
 
-        <Label htmlFor="focusTopic">Focus Topic</Label>
-        <Input id="focusTopic" value={focusTopic} onChange={(e) => setFocusTopic(e.target.value)} />
+          {/* Location */}
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g., Online, Office" required/>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes">Notes</Label>
+            <Input id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional session notes" />
+          </div>
+        </form>
       </DialogContent>
       <DialogFooter>
-        <Button type="submit" disabled={loading}>{loading ? 'Scheduling...' : 'Schedule Session'}</Button>
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-red-500 text-sm mr-auto">{error}</p>}
+        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button type="submit" form="schedule-session-form" disabled={isSubmitDisabled}>{loading ? 'Scheduling...' : 'Schedule Session'}</Button>
       </DialogFooter>
-    </form>
+    </>
   );
 };
 
-export default ScheduleSessionForm; 
+export default ScheduleSessionForm;

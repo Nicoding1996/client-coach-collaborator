@@ -27,7 +27,7 @@ export function DatePicker({ date, onDateChange, className }: DatePickerProps) {
   // const [date, setDate] = React.useState<Date>() 
 
   return (
-    <Popover>
+    <Popover modal={false}> {/* Disable Popover modality when nested */}
       <PopoverTrigger asChild>
         {/* Pass down className */}
         <Button
@@ -43,14 +43,14 @@ export function DatePicker({ date, onDateChange, className }: DatePickerProps) {
           {date ? format(date, "PPP") : <span>Pick a date</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0">
-        <Calendar
-          mode="single"
-          selected={date} // Use the 'date' prop
-          onSelect={onDateChange} // Use the 'onDateChange' prop
-          initialFocus
-        />
-      </PopoverContent>
+        <PopoverContent className={cn("w-auto p-0 z-[51] force-pointer-events-auto")} onClick={(e) => e.stopPropagation()}> {/* Add class to force pointer events */}
+          <Calendar
+            mode="single"
+            selected={date} // Use the 'date' prop
+            onSelect={onDateChange} // Use the 'onDateChange' prop
+            initialFocus
+          />
+        </PopoverContent>
     </Popover>
   )
 }

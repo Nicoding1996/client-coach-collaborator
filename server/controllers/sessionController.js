@@ -6,12 +6,12 @@ import Session from '../models/Session.js'; // Use import and .js
 // @access  Private
 export const createSession = asyncHandler(async (req, res) => {
   // Destructure expected fields from req.body
-  const { clientId, sessionDate, duration, focusTopic, notes, status } = req.body; // Add time if sent separately
+  const { clientId, sessionDate, startTime, endTime, location, notes, status } = req.body; // Updated fields
 
   // Basic validation
-  if (!clientId || !sessionDate || !duration) {
+  if (!clientId || !sessionDate || !startTime || !endTime) {
       res.status(400);
-      throw new Error('Client, Session Date, and Duration are required');
+      throw new Error('Client, Session Date, Start Time, and End Time are required');
   }
 
   // Combine date/time if needed before creating
@@ -21,8 +21,9 @@ export const createSession = asyncHandler(async (req, res) => {
     coachId: req.user._id, // Assign logged-in coach
     clientId,
     sessionDate, // Ensure this is a valid Date object
-    duration,
-    focusTopic,
+    startTime,
+    endTime,
+    location, // Added location
     notes,
     status: status || 'Upcoming' // Default status
   });
@@ -74,7 +75,8 @@ export const getSessionById = asyncHandler(async (req, res) => {
 // @access  Private
 export const updateSession = asyncHandler(async (req, res) => {
   // Allow updating specific fields like notes, status, date, duration etc.
-  const { sessionDate, duration, focusTopic, notes, status } = req.body;
+  // Allow updating specific fields like notes, status, date, times, location etc.
+  const { sessionDate, startTime, endTime, location, notes, status } = req.body; // Updated fields
 
   // Find session ensuring the logged-in user is the coach (usually only coach can update)
   const session = await Session.findOne({ _id: req.params.id, coachId: req.user._id });
@@ -82,9 +84,10 @@ export const updateSession = asyncHandler(async (req, res) => {
   if (session) {
     // Update only provided fields
     if (sessionDate !== undefined) session.sessionDate = sessionDate;
-    if (duration !== undefined) session.duration = duration;
-    if (focusTopic !== undefined) session.focusTopic = focusTopic;
-    if (notes !== undefined) session.notes = notes;
+    if (startTime !== undefined) session.startTime = startTime;
+    if (endTime !== undefined) session.endTime = endTime;
+    if (location !== undefined) session.location = location;
+    if (notes !== undefined) session.notes = notes; // notes already existed, keeping it
     if (status !== undefined) session.status = status;
 
     const updatedSession = await session.save();
