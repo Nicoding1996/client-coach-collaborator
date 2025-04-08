@@ -211,7 +211,11 @@ const CoachDashboard = () => {
     // fetchDashboardData();
   };
 
-  const getInitials = (name: string) => {
+  const getInitials = (name: string | undefined | null) => { // Allow potentially invalid name types
+    if (typeof name !== 'string' || !name) {
+      return '?'; // Return '?' or some default for invalid input
+    }
+    // Existing logic for splitting valid names
     return name
       .split(" ")
       .map(part => part[0])

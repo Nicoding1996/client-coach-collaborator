@@ -183,8 +183,8 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{initialData ? 'Edit Session' : 'Schedule a Session'}</DialogTitle>
-        <DialogDescription>Fill out the form below to schedule a new session.</DialogDescription>
+        {/* DialogTitle removed as per request */}
+        {/* DialogDescription removed as per request */}
       </DialogHeader>
       <DialogContent className="grid gap-4 py-4"> {/* Apply grid to DialogContent */}
         {/* Date Picker - Moved outside form */}
