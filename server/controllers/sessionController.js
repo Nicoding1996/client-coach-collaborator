@@ -1,5 +1,6 @@
 import asyncHandler from 'express-async-handler';
 import Session from '../models/Session.js'; // Use import and .js
+import { io, userSockets } from '../server.js'; // Import io and userSockets
 
 // @desc    Create a new session
 // @route   POST /api/sessions
@@ -29,6 +30,25 @@ export const createSession = asyncHandler(async (req, res) => {
   });
 
   const createdSession = await session.save();
+
+  // Emit WebSocket event
+  try {
+    const coachSocketId = userSockets[createdSession.coachId.toString()];
+    const clientSocketId = userSockets[createdSession.clientId.toString()];
+
+    if (coachSocketId) {
+      io.to(coachSocketId).emit('session_created', createdSession);
+      console.log(`Emitted 'session_created' to coach ${createdSession.coachId} via socket ${coachSocketId}`);
+    }
+    if (clientSocketId) {
+      io.to(clientSocketId).emit('session_created', createdSession);
+      console.log(`Emitted 'session_created' to client ${createdSession.clientId} via socket ${clientSocketId}`);
+    }
+  } catch (socketError) {
+      console.error("Socket emission error in createSession:", socketError);
+      // Decide if you want to throw or just log
+  }
+
   res.status(201).json(createdSession);
 });
 
@@ -36,6 +56,7 @@ export const createSession = asyncHandler(async (req, res) => {
 // @route   GET /api/sessions
 // @access  Private
 export const getMySessions = asyncHandler(async (req, res) => {
+  console.log(`[getMySessions] User ID making request: ${req.user?._id}`); // Added log
   // Add filtering by status (upcoming/past) or date range via query params later
   const sessions = await Session.find({
     $or: [
@@ -47,7 +68,8 @@ export const getMySessions = asyncHandler(async (req, res) => {
   .populate('coachId', 'name avatar') // Keep coach populate if needed
   .lean() // Add lean()
   .sort({ sessionDate: -1 }); // Sort by date descending
-
+console.log(`[getMySessions] Found ${sessions.length} sessions for user ${req.user?._id}`); // Added log
+res.json(sessions);
   res.json(sessions);
 });
 
@@ -92,6 +114,24 @@ export const updateSession = asyncHandler(async (req, res) => {
     if (status !== undefined) session.status = status;
 
     const updatedSession = await session.save();
+
+    // Emit WebSocket event
+    try {
+        const coachSocketId = userSockets[updatedSession.coachId.toString()];
+        const clientSocketId = userSockets[updatedSession.clientId.toString()];
+
+        if (coachSocketId) {
+          io.to(coachSocketId).emit('session_updated', updatedSession);
+          console.log(`Emitted 'session_updated' to coach ${updatedSession.coachId} via socket ${coachSocketId}`);
+        }
+        if (clientSocketId) {
+          io.to(clientSocketId).emit('session_updated', updatedSession);
+          console.log(`Emitted 'session_updated' to client ${updatedSession.clientId} via socket ${clientSocketId}`);
+        }
+    } catch (socketError) {
+        console.error("Socket emission error in updateSession:", socketError);
+    }
+
     res.json(updatedSession);
   } else {
     res.status(404);
@@ -103,14 +143,44 @@ export const updateSession = asyncHandler(async (req, res) => {
 // @route   DELETE /api/sessions/:id
 // @access  Private
 export const deleteSession = asyncHandler(async (req, res) => {
-  // Ensure only the coach can delete the session
+  // Find the session first to get IDs for socket emission
+  const sessionToDelete = await Session.findOne({ _id: req.params.id, coachId: req.user._id }).lean();
+
+  if (!sessionToDelete) {
+    res.status(404);
+    throw new Error('Session not found or not authorized');
+  }
+
+  const coachId = sessionToDelete.coachId.toString();
+  const clientId = sessionToDelete.clientId.toString();
+  const sessionId = sessionToDelete._id.toString();
+
+  // Perform the deletion
   const result = await Session.deleteOne({ _id: req.params.id, coachId: req.user._id });
 
   if (result.deletedCount === 1) {
+    // Emit WebSocket event after successful deletion
+    try {
+        const coachSocketId = userSockets[coachId];
+        const clientSocketId = userSockets[clientId];
+
+        if (coachSocketId) {
+          io.to(coachSocketId).emit('session_deleted', { sessionId });
+           console.log(`Emitted 'session_deleted' for session ${sessionId} to coach ${coachId} via socket ${coachSocketId}`);
+        }
+        if (clientSocketId) {
+          io.to(clientSocketId).emit('session_deleted', { sessionId });
+          console.log(`Emitted 'session_deleted' for session ${sessionId} to client ${clientId} via socket ${clientSocketId}`);
+        }
+    } catch (socketError) {
+        console.error("Socket emission error in deleteSession:", socketError);
+    }
+
     res.json({ message: 'Session removed' });
   } else {
+    // This case should technically be less likely now due to the initial find
     res.status(404);
-    throw new Error('Session not found or not authorized');
+    throw new Error('Session not found during deletion or not authorized');
   }
 });
 

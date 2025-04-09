@@ -14,8 +14,9 @@ import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import ScheduleSessionForm from '@/components/forms/ScheduleSessionForm';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker for testing
-import { toast } from 'sonner'; 
+import { toast } from 'sonner';
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
+import { useWebSocket } from "@/contexts/WebSocketContext"; // Import WebSocket hook
 // Define Client type locally (or move to a shared types file)
 interface Client {
   _id?: string;
@@ -52,7 +53,8 @@ const CoachSessions = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [testDate, setTestDate] = useState<Date | undefined>(undefined); // State for test DatePicker
-  
+  const { socket } = useWebSocket(); // Get socket instance
+
   // Fetch sessions and clients on initial load
    useEffect(() => {
     const fetchData = async () => {
@@ -117,6 +119,51 @@ const CoachSessions = () => {
 
     fetchData();
   }, []);
+
+  // WebSocket Event Listeners
+  useEffect(() => {
+    if (socket) {
+      console.log('[WS] Setting up listeners for CoachSessions...');
+
+      const handleSessionCreated = (newSession: SessionType) => {
+        console.log('[WS] Session Created:', newSession);
+        // TODO: Potentially need data augmentation here if backend doesn't send full object
+        // Assuming backend sends augmented data for now
+        setSessions(prev => [...prev, newSession]);
+        toast.info(`New session scheduled with ${newSession.clientName || 'client'}`);
+      };
+
+      const handleSessionUpdated = (updatedSession: SessionType) => {
+        console.log('[WS] Session Updated:', updatedSession);
+         // TODO: Potentially need data augmentation here if backend doesn't send full object
+         // Assuming backend sends augmented data for now
+        setSessions(prev => prev.map(s => s._id === updatedSession._id ? updatedSession : s));
+         toast.info(`Session with ${updatedSession.clientName || 'client'} updated.`);
+      };
+
+      const handleSessionDeleted = (data: { sessionId: string }) => {
+        const { sessionId } = data;
+        console.log('[WS] Session Deleted:', sessionId);
+        setSessions(prev => prev.filter(s => s._id !== sessionId));
+        toast.info(`A session was deleted.`);
+      };
+
+      // Add listeners
+      socket.on('session_created', handleSessionCreated);
+      socket.on('session_updated', handleSessionUpdated);
+      socket.on('session_deleted', handleSessionDeleted);
+
+      // Cleanup function
+      return () => {
+        console.log('[WS] Cleaning up listeners for CoachSessions...');
+        socket.off('session_created', handleSessionCreated);
+        socket.off('session_updated', handleSessionUpdated);
+        socket.off('session_deleted', handleSessionDeleted);
+      };
+    } else {
+       console.log('[WS] Socket not available yet for CoachSessions listeners.');
+    }
+  }, [socket]); // Dependency array includes socket
 
   // Updated to accept the newly created session object for optimistic update
   // Renamed and updated to handle both create and update

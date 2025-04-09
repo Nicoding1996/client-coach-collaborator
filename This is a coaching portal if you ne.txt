@@ -1,0 +1,37 @@
+This is a coaching portal if you need files/ code files for more info just tell me for now mostly is a design and no functions yet like the buttons, search bar filters, view profile or edit. I want them to function as well update and connect each other like for example if i schedule a session in my session tab it should reflect in the dashboard another example if i update my invoice it should reflect in the dash. 
+
+but before that we should make the buttons working:
+
+in the clients:
+
+1. search bar should work
+2. Filter and recent button should work
+3.profile and message should work
+
+in Session:
+
+1. able to schedule a session
+2. filter button able to work
+3. able to see notes 
+4. remove the join button
+5. add an edit session button to edit/remove a session
+
+In invoices: 
+
+1. the create an invoice button should work
+2. able to view, export and download invoice
+3. be able to change the status of the invoice and the due date
+4. Search bar should work
+
+
+and i have tasks in my dash board give me suggestion for to integrate and make it function in the platform
+
+how do i go about this? is it stop by stop or all in one to make in connect? i will be using chat gpt on cursor ai
+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
+
+0645010000017874 pwd
+
+70a25e6534868fe8b2028ffe854314bae4f0b82a Author: Nicoding1996 <nicovbriune.salvana@gmail.com>
+Date:   Tue Apr 8 18:55:29 2025 +0800
+
+    working session upload and dashboard

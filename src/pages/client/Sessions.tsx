@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"; // useEffect already present
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,10 +7,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Filter, Video, FileText, MessageSquare, Clock } from "lucide-react"; // Added Clock
-import { format, parseISO } from "date-fns"; // Keep basic date-fns functions for now
+import { format, parseISO, differenceInMinutes, parse } from "date-fns"; // Add functions for duration calculation
 import { cn } from "@/lib/utils"; // Keep one cn import
 import { authAPI } from "@/services/api"; // Keep authAPI
-
+import { toast } from 'sonner'; // Import toast
+import { useWebSocket } from "@/contexts/WebSocketContext"; // Import WebSocket hook
 // Removed Mock Data
 // Removed Mock Data
 
@@ -47,31 +48,137 @@ const ClientSessions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [upcomingSessions, setUpcomingSessions] = useState<SessionType[]>([]);
-  const [pastSessions, setPastSessions] = useState<SessionType[]>([]);
+  const [sessions, setSessions] = useState<SessionType[]>([]); // Single sessions state
+  const { socket } = useWebSocket(); // Get socket instance
 
   // Fetch sessions data
-  useEffect(() => {
+   useEffect(() => {
     const fetchSessions = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch sessions from API when ready
-        // For now, set empty arrays
-        setUpcomingSessions([]);
-        setPastSessions([]);
-        
-        setLoading(false);
+        // Use the same endpoint as coach, backend filters based on logged-in user
+        const sessionsData = await authAPI.getSessions();
+
+        // Data Augmentation (Calculate Duration) - Similar to Coach view
+        const processedSessions = sessionsData.map(session => {
+            let calculatedDuration: number | undefined = undefined;
+            if (session.sessionDate && typeof session.startTime === 'string' && typeof session.endTime === 'string') {
+                try {
+                    const baseDateStr = format(parseISO(session.sessionDate), 'yyyy-MM-dd');
+                    const startDateTime = parse(`${baseDateStr} ${session.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                    const endDateTime = parse(`${baseDateStr} ${session.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+                    if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime())) {
+                        calculatedDuration = differenceInMinutes(endDateTime, startDateTime);
+                        if (calculatedDuration < 0) calculatedDuration += 24 * 60;
+                    }
+                } catch (parseError) {
+                    console.error(`Error calculating duration for session ${session._id}:`, parseError);
+                }
+            }
+            return {
+              ...session,
+              duration: calculatedDuration,
+              // Ensure coachId is correctly populated or handle potential undefined
+              coachId: session.coachId || { _id: 'unknown', name: 'Unknown Coach' } // Provide fallback
+            };
+          });
+
+
+        setSessions(processedSessions);
       } catch (err) {
         console.error("Error fetching sessions:", err);
         setError("Failed to load sessions. Please try again.");
+        toast.error("Failed to load session data.");
+      } finally {
         setLoading(false);
       }
     };
 
     fetchSessions();
-  }, []);
+  }, []); // Empty dependency array means fetch only on mount
+
+  // WebSocket Event Listeners
+  useEffect(() => {
+    if (socket) {
+      console.log('[WS Client] Setting up listeners for ClientSessions...');
+
+      const handleSessionCreated = (newSession: SessionType) => {
+        console.log('[WS Client] Session Created:', newSession);
+         // TODO: Data augmentation might be needed if backend doesn't send full object
+        // Assuming backend sends augmented data for now
+        setSessions(prev => [...prev, newSession]);
+        toast.info(`New session scheduled with ${newSession.coachId?.name || 'your coach'}`);
+      };
+
+      const handleSessionUpdated = (updatedSession: SessionType) => {
+        console.log('[WS Client] Session Updated:', updatedSession);
+         // TODO: Data augmentation might be needed
+         // Assuming backend sends augmented data for now
+        setSessions(prev => prev.map(s => s._id === updatedSession._id ? updatedSession : s));
+         toast.info(`Session with ${updatedSession.coachId?.name || 'your coach'} updated.`);
+      };
+
+      const handleSessionDeleted = (data: { sessionId: string }) => {
+        const { sessionId } = data;
+        console.log('[WS Client] Session Deleted:', sessionId);
+        setSessions(prev => prev.filter(s => s._id !== sessionId));
+        toast.info(`A session was cancelled.`);
+      };
+
+      socket.on('session_created', handleSessionCreated);
+      socket.on('session_updated', handleSessionUpdated);
+      socket.on('session_deleted', handleSessionDeleted);
+
+      return () => {
+        console.log('[WS Client] Cleaning up listeners for ClientSessions...');
+        socket.off('session_created', handleSessionCreated);
+        socket.off('session_updated', handleSessionUpdated);
+        socket.off('session_deleted', handleSessionDeleted);
+      };
+    } else {
+       console.log('[WS Client] Socket not available yet for ClientSessions listeners.');
+    }
+  }, [socket]); // Re-run if socket changes
+
+  // Filter sessions into upcoming and past using useMemo for efficiency
+  const { upcomingSessions, pastSessions } = useMemo(() => {
+    const todayString = format(new Date(), 'yyyy-MM-dd');
+    const upcoming: SessionType[] = [];
+    const past: SessionType[] = [];
+
+    sessions.forEach(session => {
+       try {
+         // Basic validation before parsing
+         if (typeof session.sessionDate !== 'string' || !session.sessionDate) {
+           console.warn(`[Filter] Session ${session._id} has invalid date string: ${session.sessionDate}`);
+           return; // Skip this session
+         }
+         const parsedSessionDate = parseISO(session.sessionDate);
+         // Define sessionDateString here to use in the log message
+         const sessionDateString = format(parsedSessionDate, 'yyyy-MM-dd');
+         if (isNaN(parsedSessionDate.getTime())) {
+            // Add specific debug log format
+            console.error(`[Filter Debug ${sessionDateString >= todayString ? 'Upcoming' : 'Past'}] Failed to parse date for session ID ${session._id}: ${session.sessionDate}`);
+            return; // Skip session with invalid date
+         }
+         // const sessionDateString = format(parsedSessionDate, 'yyyy-MM-dd'); // REMOVE THIS LINE (Duplicate declaration)
+         if (sessionDateString >= todayString) {
+           upcoming.push(session);
+         } else {
+           past.push(session);
+         }
+       } catch (e) {
+         console.error(`[Filter Error] Session ${session._id} Date='${session.sessionDate}'`, e);
+       }
+    });
+
+    // Sort
+    upcoming.sort((a, b) => parseISO(a.sessionDate).getTime() - parseISO(b.sessionDate).getTime());
+    past.sort((a, b) => parseISO(b.sessionDate).getTime() - parseISO(a.sessionDate).getTime());
+
+    return { upcomingSessions: upcoming, pastSessions: past };
+  }, [sessions]); // Recalculate when sessions state changes
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -103,7 +210,10 @@ const ClientSessions = () => {
                 
                 <TabsContent value="upcoming" className="space-y-4">
                   {upcomingSessions.length > 0 ? (
-                    upcomingSessions.map((session) => (
+                    upcomingSessions.map((session) => {
+                      // Add rendering log
+                      console.log('[Rendering Upcoming]', session);
+                      return (
                       <Card key={session._id} className="hover-lift">
                         <CardContent className="p-6">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -137,7 +247,8 @@ const ClientSessions = () => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))
+                      ); // Close return
+                    })
                   ) : (
                     <Card>
                       <CardContent className="flex flex-col items-center justify-center p-12">
@@ -156,7 +267,10 @@ const ClientSessions = () => {
                 
                 <TabsContent value="past" className="space-y-4">
                   {pastSessions.length > 0 ? (
-                    pastSessions.map((session) => (
+                    pastSessions.map((session) => {
+                      // Add rendering log
+                      console.log('[Rendering Past]', session);
+                      return (
                       <Card key={session._id} className="hover-lift">
                         <CardContent className="p-6">
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -184,7 +298,8 @@ const ClientSessions = () => {
                           </div>
                         </CardContent>
                       </Card>
-                    ))
+                      ); // Close return
+                    })
                   ) : (
                     <Card>
                       <CardContent className="flex flex-col items-center justify-center p-12">

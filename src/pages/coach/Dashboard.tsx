@@ -241,7 +241,7 @@ const CoachDashboard = () => {
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 {/* Render ScheduleSessionForm inside DialogContent */}
-                <ScheduleSessionForm onSuccess={handleSessionScheduled} />
+                <ScheduleSessionForm onSuccess={handleSessionScheduled} onClose={() => setScheduleDialogOpen(false)} />
               </DialogContent>
             </Dialog>
           </div>
