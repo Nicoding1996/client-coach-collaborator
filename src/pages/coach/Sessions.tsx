@@ -396,7 +396,7 @@ const CoachSessions = () => {
                             <div className="flex items-center">
                               <Avatar className="h-12 w-12">
                                 {/* Access avatar and name from populated clientId */}
-                                <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name} />
+                                <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name || 'Client'} className="object-cover" />
                                 <AvatarFallback>{getInitials(session.clientId?.name)}</AvatarFallback>
                               </Avatar>
                               <div className="ml-4">
@@ -443,7 +443,7 @@ const CoachSessions = () => {
                           <div className="flex items-center">
                             <Avatar className="h-12 w-12">
                                {/* Access avatar and name from populated clientId */}
-                              <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name} />
+                              <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name || 'Client'} className="object-cover" />
                               <AvatarFallback>{getInitials(session.clientId?.name)}</AvatarFallback>
                             </Avatar>
                             <div className="ml-4">

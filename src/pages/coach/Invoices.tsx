@@ -7,13 +7,26 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileDown, FileText, Plus, Search, Filter, ArrowUpDown, Download, Eye, CreditCard } from "lucide-react";
 import { authAPI } from "@/services/api"; 
-import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
+// Import DialogHeader and DialogTitle as well
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import CreateInvoiceForm from '@/components/forms/CreateInvoiceForm';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Remove Client interface if not used elsewhere in this file
 
+// Define ClientUser type for populated clientId field
+interface ClientUser {
+  _id: string; // User ID
+  name: string;
+  avatar?: string;
+  email?: string; // Include email if populated by backend
+}
+
+// Corrected InvoiceType expecting populated clientId
 interface InvoiceType {
-  id: string;
-  client: string;
+  _id: string;
+  invoiceNumber?: string;
+  clientId: ClientUser | null; // Expect populated User object
+  // clientName is removed, use clientId.name
   issueDate: string;
   dueDate: string;
   amount: number;
@@ -23,7 +36,8 @@ interface InvoiceType {
 }
 
 const CoachInvoices = () => {
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<InvoiceType[]>([]); // Use updated type
+  // Remove clients state
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -38,12 +52,47 @@ const CoachInvoices = () => {
     fetchInvoices();
   };
 
+  // Fetch invoices (backend now populates client)
   const fetchInvoices = async () => {
+    setLoading(true);
     try {
-      const data = await authAPI.getInvoices();
-      setInvoices(data);
+      // Fetch invoices - clientId is now populated by the backend
+      const invoicesData = await authAPI.getInvoices();
+      console.log("[Fetch] Raw Invoices from API (populated):", invoicesData);
+
+      // Perform a safe mapping to ensure the data conforms to InvoiceType
+      // Remove 'any' type and use explicit mapping
+      const processedInvoices: InvoiceType[] = invoicesData.map((inv) => {
+        // Basic validation or default values for the populated clientId object
+        const clientIdPopulated: ClientUser | null = (inv.clientId && typeof inv.clientId === 'object' && inv.clientId._id)
+          ? {
+              _id: inv.clientId._id, // Ensure _id exists
+              name: inv.clientId.name || 'Unknown Client', // Provide default name
+              avatar: inv.clientId.avatar,
+              email: inv.clientId.email
+            }
+          : null; // Set to null if clientId is not a populated object or lacks _id
+
+        // Construct the final InvoiceType object safely
+        return {
+          _id: inv._id || '', // Ensure _id exists
+          invoiceNumber: inv.invoiceNumber,
+          clientId: clientIdPopulated, // Use the validated/defaulted object or null
+          issueDate: inv.issueDate || '',
+          dueDate: inv.dueDate || '',
+          amount: inv.amount || 0,
+          status: inv.status || 'Unknown',
+          lineItems: inv.lineItems || [],
+          notes: inv.notes || ''
+        };
+      });
+      console.log("[Fetch] Processed Invoices for state (safe map):", processedInvoices);
+      setInvoices(processedInvoices);
+
     } catch (error) {
-      console.error("Failed to fetch invoices:", error);
+      console.error("Failed to fetch invoices or clients:", error);
+      // Add toast notification for user
+      // toast.error("Failed to load invoice data.");
     } finally {
       setLoading(false);
     }
@@ -54,10 +103,14 @@ const CoachInvoices = () => {
   }, []);
   
   // Filter invoices based on search query and active tab
-  const filteredInvoices = invoices.filter((invoice) => {
-    const matchesSearch = 
-      invoice.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.client.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredInvoices = invoices.filter((invoice: InvoiceType) => { // Add type annotation
+    // Use optional chaining and provide default empty string for safety
+    // Search by invoice number OR client name
+    const invoiceNumMatch = invoice.invoiceNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+    // Use populated clientId.name
+    const clientNameMatch = invoice.clientId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+
+    const matchesSearch = invoiceNumMatch || clientNameMatch;
     
     if (activeTab === "all") {
       return matchesSearch;
@@ -86,8 +139,8 @@ const CoachInvoices = () => {
     try {
       // Optimistically update the UI
       setInvoices((prevInvoices) =>
-        prevInvoices.map((invoice) =>
-          invoice.id === invoiceId ? { ...invoice, status: newStatus } : invoice
+        prevInvoices.map((invoice: InvoiceType) => // Add type
+          invoice._id === invoiceId ? { ...invoice, status: newStatus } : invoice // Correct: uses _id
         )
       );
 
@@ -99,8 +152,8 @@ const CoachInvoices = () => {
     } catch (error) {
       // Revert the optimistic update
       setInvoices((prevInvoices) =>
-        prevInvoices.map((invoice) =>
-          invoice.id === invoiceId ? { ...invoice, status: invoice.status } : invoice
+        prevInvoices.map((invoice: InvoiceType) => // Add type
+          invoice._id === invoiceId ? { ...invoice, status: invoice.status } : invoice // Correct: uses _id
         )
       );
 
@@ -142,8 +195,20 @@ const CoachInvoices = () => {
             </Button>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            {/* Add DialogHeader, render form, add DialogFooter */}
             <DialogContent>
+              <DialogHeader>
+                 <DialogTitle>Create Invoice</DialogTitle>
+                 {/* Optional: Add DialogDescription here */}
+              </DialogHeader>
+              {/* Render form - remove onClose prop */}
               <CreateInvoiceForm onSuccess={handleInvoiceCreated} />
+              {/* Add Footer with buttons */}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                {/* Add loading state if needed */}
+                <Button type="submit" form="create-invoice-form">Create Invoice</Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
           
@@ -261,17 +326,22 @@ const CoachInvoices = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {filteredInvoices.map((invoice) => (
-                              <TableRow key={invoice.id}>
-                                <TableCell>{invoice.id}</TableCell>
-                                <TableCell>{invoice.client}</TableCell>
-                                <TableCell>{invoice.date}</TableCell>
+                            {/* Add type annotation */}
+                            {filteredInvoices.map((invoice: InvoiceType) => (
+                              // Use _id for the key
+                              <TableRow key={invoice._id}>
+                                {/* Display invoiceNumber or fallback to _id */}
+                                <TableCell>{invoice.invoiceNumber || invoice._id}</TableCell>
+                                {/* Display populated client name */}
+                                <TableCell>{invoice.clientId?.name || 'Unknown Client'}</TableCell>
+                                <TableCell>{invoice.issueDate}</TableCell>
                                 <TableCell>{invoice.dueDate}</TableCell>
                                 <TableCell>${invoice.amount.toFixed(2)}</TableCell>
                                 <TableCell>
                                   <Select
+                                    // Use _id for handleStatusChange
                                     defaultValue={invoice.status}
-                                    onValueChange={(newStatus) => handleStatusChange(invoice.id, newStatus)}
+                                    onValueChange={(newStatus) => handleStatusChange(invoice._id, newStatus)}
                                   >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select status" />
@@ -286,7 +356,8 @@ const CoachInvoices = () => {
                                   </Select>
                                 </TableCell>
                                 <TableCell>
-                                  <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice.id)}>
+                                  {/* Use _id for handleViewInvoice */}
+                                  <Button variant="ghost" size="sm" onClick={() => handleViewInvoice(invoice._id)}>
                                     <Eye className="h-4 w-4" />
                                   </Button>
                                 </TableCell>
@@ -332,12 +403,12 @@ const CoachInvoices = () => {
                           <TableBody>
                             {filteredInvoices
                               .filter(i => i.status === "draft")
-                              .map((invoice) => (
-                                <TableRow key={invoice.id}>
-                                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                                  <TableCell>{invoice.client}</TableCell>
+                              .map((invoice: InvoiceType) => ( // Add type
+                                <TableRow key={invoice._id}>
+                                  <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                                  <TableCell>{invoice.clientId?.name || 'Unknown Client'}</TableCell>
                                   <TableCell>${invoice.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                                  <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                                   <TableCell className="text-right">
@@ -386,12 +457,12 @@ const CoachInvoices = () => {
                           <TableBody>
                             {filteredInvoices
                               .filter(i => i.status === "pending")
-                              .map((invoice) => (
-                                <TableRow key={invoice.id}>
-                                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                                  <TableCell>{invoice.client}</TableCell>
+                              .map((invoice: InvoiceType) => ( // Add type
+                                <TableRow key={invoice._id}>
+                                  <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                                  <TableCell>{invoice.clientId?.name || 'Unknown Client'}</TableCell>
                                   <TableCell>${invoice.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                                  <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                                   <TableCell className="text-right">
@@ -443,12 +514,12 @@ const CoachInvoices = () => {
                           <TableBody>
                             {filteredInvoices
                               .filter(i => i.status === "paid")
-                              .map((invoice) => (
-                                <TableRow key={invoice.id}>
-                                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                                  <TableCell>{invoice.client}</TableCell>
+                              .map((invoice: InvoiceType) => ( // Add type
+                                <TableRow key={invoice._id}>
+                                  <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                                  <TableCell>{invoice.clientId?.name || 'Unknown Client'}</TableCell>
                                   <TableCell>${invoice.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                                  <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                                   <TableCell className="text-right">
@@ -499,12 +570,12 @@ const CoachInvoices = () => {
                           <TableBody>
                             {filteredInvoices
                               .filter(i => i.status === "overdue")
-                              .map((invoice) => (
-                                <TableRow key={invoice.id}>
-                                  <TableCell className="font-medium">{invoice.id}</TableCell>
-                                  <TableCell>{invoice.client}</TableCell>
+                              .map((invoice: InvoiceType) => ( // Add type
+                                <TableRow key={invoice._id}>
+                                  <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                                  <TableCell>{invoice.clientId?.name || 'Unknown Client'}</TableCell>
                                   <TableCell>${invoice.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                                  <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{new Date(invoice.dueDate).toLocaleDateString()}</TableCell>
                                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                                   <TableCell className="text-right">
@@ -550,8 +621,10 @@ const CoachInvoices = () => {
                 <p>Loading invoice details...</p>
               ) : selectedInvoiceData ? (
                 <div>
-                  <h2>Invoice #{selectedInvoiceData.id}</h2>
-                  <p>Client: {selectedInvoiceData.client}</p>
+                  {/* Use invoiceNumber or _id, and clientName */}
+                  <h2>Invoice #{selectedInvoiceData.invoiceNumber || selectedInvoiceData._id}</h2>
+                  {/* Use populated client name */}
+                  <p>Client: {selectedInvoiceData.clientId?.name || 'Unknown Client'}</p>
                   <p>Issue Date: {selectedInvoiceData.issueDate}</p>
                   <p>Due Date: {selectedInvoiceData.dueDate}</p>
                   <p>Status: {selectedInvoiceData.status}</p>

@@ -219,7 +219,7 @@ const ClientSessions = () => {
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={session.coachId?.avatar} alt={session.coachId?.name} />
+                                <AvatarImage src={session.coachId?.avatar} alt={session.coachId?.name || 'Coach'} className="object-cover" />
                                 <AvatarFallback>{getInitials(session.coachId?.name || '')}</AvatarFallback>
                               </Avatar>
                               <div className="ml-4">
@@ -276,7 +276,7 @@ const ClientSessions = () => {
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={session.coachId?.avatar} alt={session.coachId?.name} />
+                                <AvatarImage src={session.coachId?.avatar} alt={session.coachId?.name || 'Coach'} className="object-cover" />
                                 <AvatarFallback>{getInitials(session.coachId?.name || '')}</AvatarFallback>
                               </Avatar>
                               <div className="ml-4">

@@ -95,6 +95,8 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     const isEditing = !!initialData; // Check if we are editing
     console.log('handleSubmit called'); // Log: Function start
+    console.log('[Form Submit] Clients state:', clients); // <-- ADD LOG
+    console.log('[Form Submit] Selected clientId state:', clientId); // <-- ADD LOG
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -111,6 +113,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
     try {
       // Find the full client object from state using the selected clientId (_id of client record)
       const selectedClientObject = clients.find(c => (c._id || c.id) === clientId);
+      console.log('[Form Submit] Found selectedClientRecord:', selectedClientObject); // <-- ADD LOG
 
       if (!selectedClientObject) {
         setError("Selected client not found. Please refresh and try again.");

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DialogHeader, DialogTitle, DialogContent, DialogFooter } from '@/components/ui/dialog';
+// Removed Dialog parts from imports
 // --- CORRECTED IMPORTS ---
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
 // --- CORRECTED IMPORT ---
 import { authAPI } from '@/services/api';
 
-// Define Client Type (adjust based on actual data structure)
+// Define Client Type (ensure it matches GET /clients response, including userId)
 interface Client {
-  _id: string; // Assuming MongoDB ID
-  id?: string; // Or use id if available
+  _id: string; // Client record ID
+  id?: string; // Fallback
+  userId: string; // Linked User ID (MUST be returned by GET /clients)
   name: string;
+  avatar?: string; // Include avatar if needed/available
 }
 
 interface LineItem {
@@ -23,10 +25,12 @@ interface LineItem {
   price: number;
 }
 
+// Removed onClose prop
 interface CreateInvoiceFormProps {
   onSuccess: () => void;
 }
 
+// Removed onClose from signature
 const CreateInvoiceForm: React.FC<CreateInvoiceFormProps> = ({ onSuccess }) => {
   const [clients, setClients] = useState<Client[]>([]); // Add type for clients
   const [formData, setFormData] = useState({
@@ -111,9 +115,25 @@ const CreateInvoiceForm: React.FC<CreateInvoiceFormProps> = ({ onSuccess }) => {
     setLoading(true);
     setError('');
     try {
+      // Find the selected client object from the clients state
+      // formData.clientId currently holds the Client Record _id from the dropdown
+      const selectedClientObject = clients.find(c => (c._id || c.id) === formData.clientId);
+
+      // Ensure the client object and its userId were found
+      if (!selectedClientObject || !selectedClientObject.userId) {
+          setError('Selected client is invalid or missing required user ID. Please ensure the client list is loaded correctly.');
+          setLoading(false);
+          return;
+      }
+
       const totalAmount = calculateTotalAmount();
-      // Ensure API expects amount field if using line items
-      const payload = { ...formData, amount: totalAmount };
+      // Construct payload using the USER ID from the found client object
+      const payload = {
+        ...formData,
+        clientId: selectedClientObject.userId, // <-- Send USER ID
+        amount: totalAmount
+      };
+      console.log('[CreateInvoice] Sending payload with USER ID as clientId:', payload); // Add log
       await authAPI.createInvoice(payload);
       onSuccess(); // Call the success callback passed from parent
     } catch (err) {
@@ -125,13 +145,8 @@ const CreateInvoiceForm: React.FC<CreateInvoiceFormProps> = ({ onSuccess }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <DialogHeader>
-        <DialogTitle>Create Invoice</DialogTitle>
-        {/* <DialogDescription>Optional description here</DialogDescription> */}
-      </DialogHeader>
-      {/* Add padding and spacing to content */}
-      <DialogContent className="space-y-4">
+    // Removed duplicate return and comment
+    <form id="create-invoice-form" onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-sm text-red-600 bg-red-100 p-2 rounded">{error}</p>}
 
         {/* Client Select */}
@@ -231,14 +246,9 @@ const CreateInvoiceForm: React.FC<CreateInvoiceFormProps> = ({ onSuccess }) => {
           </Select>
         </div>
 
-      </DialogContent>
-      <DialogFooter>
-        {/* Add a Cancel button? */}
-        {/* <Button type="button" variant="ghost" onClick={onSuccess}>Cancel</Button> */}
-        <Button type="submit" disabled={loading || !formData.clientId}>
-            {loading ? 'Creating...' : 'Create Invoice'}
-        </Button>
-      </DialogFooter>
+        {/* Form fields end before DialogContent closes */}
+      {/* Form fields end here */}
+      {/* Footer buttons are now handled by the parent */}
     </form>
   );
 };

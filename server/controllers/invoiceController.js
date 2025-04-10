@@ -7,12 +7,15 @@ import { generateInvoiceNumber } from '../utils/invoiceUtils.js'; // Assuming yo
 // @access  Private
 export const createInvoice = asyncHandler(async (req, res) => {
   // Destructure expected fields from req.body
-  const { clientId, amount, lineItems, description, dueDate, notes, status } = req.body;
+  // Assuming clientId received here is the User ID now
+  const { clientId, amount, lineItems, description, dueDate, notes, status, issueDate } = req.body; // Added issueDate
+  console.log(`[CreateInvoice BE] Received clientId (User ID) from form: ${clientId}`); // <-- ADD LOG
 
-  // Basic validation
-  if (!clientId || (!amount && !lineItems)) {
+  // Basic validation - ensure issueDate is also included if required by schema
+  // Also check if lineItems is empty when amount is not provided
+  if (!clientId || (!amount && (!lineItems || lineItems.length === 0)) || !issueDate || !dueDate) {
       res.status(400);
-      throw new Error('Client ID and Amount or Line Items are required');
+      throw new Error('Client ID, Issue Date, Due Date and Amount or Line Items are required');
   }
 
   // Calculate amount from lineItems if necessary
@@ -29,18 +32,27 @@ export const createInvoice = asyncHandler(async (req, res) => {
 
   const invoice = new Invoice({
     coachId: req.user._id, // Assign logged-in coach
-    clientId,
+    clientId, // Should be the User ID now
     invoiceNumber,
+    issueDate, // Add issueDate if missing from original schema usage
+    dueDate,
     amount: calculatedAmount,
     lineItems,
-    description, // Add description if needed in schema/request
-    dueDate,
+    description,
     notes,
-    status: status || 'Draft' // Default status if not provided
+    status: status || 'Draft'
   });
 
+  console.log(`[CreateInvoice BE] Saving invoice with clientId (User ID): ${invoice.clientId}`); // <-- ADD LOG
   const createdInvoice = await invoice.save();
-  res.status(201).json(createdInvoice);
+
+  // Populate client details before sending back
+  const populatedInvoice = await Invoice.findById(createdInvoice._id)
+                                  .populate('clientId', '_id name avatar') // Populate with User details
+                                  .lean(); // Use lean if not modifying further
+
+  console.log('[CreateInvoice BE] Sending populated invoice:', populatedInvoice);
+  res.status(201).json(populatedInvoice || createdInvoice); // Send populated if successful, else fallback
 });
 
 // @desc    Get all invoices for the logged-in coach
@@ -48,9 +60,14 @@ export const createInvoice = asyncHandler(async (req, res) => {
 // @access  Private
 export const getMyInvoices = asyncHandler(async (req, res) => {
   // Add filtering/sorting/pagination later if needed
+  // Ensure lean() is used if not modifying docs
   const invoices = await Invoice.find({ coachId: req.user._id })
-                                .populate('clientId', 'name email') // Populate client info
+                                .populate('clientId', 'name email avatar') // Populate client info including avatar
+                                .lean() // Add lean for performance
                                 .sort({ issueDate: -1 }); // Sort by issue date descending
+
+  console.log('[GetInvoices Controller] Invoices AFTER populate:', JSON.stringify(invoices, null, 2)); // Log the result before sending
+
   res.json(invoices);
 });
 

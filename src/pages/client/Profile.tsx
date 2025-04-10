@@ -257,7 +257,7 @@ const ClientProfile = () => {
                 <div className="flex flex-col items-center">
                   <div className="relative">
                     <Avatar className={`h-32 w-32 ${isEditing ? 'cursor-pointer' : ''}`} onClick={handleAvatarClick}>
-                      <AvatarImage src={user?.avatar} alt={user?.name} />
+                      <AvatarImage src={user?.avatar} alt={user?.name || 'User'} className="object-cover"/>
                       <AvatarFallback className="text-3xl">{user?.name ? getInitials(user.name) : "C"}</AvatarFallback>
                     </Avatar>
                     {isEditing && (

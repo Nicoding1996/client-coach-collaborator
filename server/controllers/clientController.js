@@ -45,11 +45,13 @@ export const getMyClients = asyncHandler(async (req, res) => {
     ]
   } : {};
 
+  // Fetch clients and populate linked user details including avatar
   const clients = await Client.find({
     coachId: req.user._id,
     ...search
-  });
-  // Consider populating user details if needed: .populate('userId', 'name email avatar')
+  })
+  .populate('userId', 'name email avatar') // Populate user details
+  .lean(); // Use lean for better performance if only reading data
   res.json(clients);
 });
 
