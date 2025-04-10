@@ -58,21 +58,49 @@ const createdSession = await session.save();
 // @route   GET /api/sessions
 // @access  Private
 export const getMySessions = asyncHandler(async (req, res) => {
-  console.log(`[getMySessions] User ID making request: ${req.user?._id}`); // Added log
-  // Add filtering by status (upcoming/past) or date range via query params later
-  const sessions = await Session.find({
-    $or: [
-      { coachId: req.user._id },
-      { clientId: req.user._id }
-    ]
-  })
-  // REMOVED: .populate('clientId', 'name avatar')
-  .populate('coachId', 'name avatar') // Keep coach populate if needed
-  .lean() // Add lean()
-  .sort({ sessionDate: -1 }); // Sort by date descending
-console.log(`[getMySessions] Found ${sessions.length} sessions for user ${req.user?._id}`); // Added log
-res.json(sessions);
-  res.json(sessions);
+    console.log(`[getMySessions] User ID making request: ${req.user?._id}, Role: ${req.user?.role}`); // Log role too
+    const userId = req.user._id;
+    let sessions;
+
+    // Check user role (assuming req.user has a role property)
+    if (!req.user || !req.user.role) {
+        console.error(`[getMySessions] User role not found for user ${userId}`);
+        // Return empty array or appropriate error
+        return res.status(403).json({ message: 'User role is required to fetch sessions.' });
+    }
+
+    if (req.user.role === 'coach') {
+        // Coach: Find sessions where they are the coach
+        console.log(`[getMySessions] Fetching sessions for COACH ${userId}`);
+        sessions = await Session.find({ coachId: userId })
+            // We need CLIENT details for the coach view.
+            // Populate the User model linked via the 'clientId' field in the Session model.
+            .populate({
+                path: 'clientId', // Populate the User linked via clientId
+                select: 'name avatar email' // Select desired fields from the User model
+            })
+            .populate('coachId', 'name avatar') // Keep coach populate
+            .lean()
+            .sort({ sessionDate: -1 });
+        console.log(`[getMySessions] Found ${sessions ? sessions.length : 0} sessions for COACH ${userId}`);
+
+    } else if (req.user.role === 'client') {
+        // Client: Find sessions where they are the client (using the USER ID)
+        console.log(`[getMySessions] Fetching sessions for CLIENT ${userId}`);
+        sessions = await Session.find({ clientId: userId }) // Query using USER ID stored in Session.clientId
+            .populate('coachId', 'name avatar') // Populate coach details for client view
+            // No need to populate clientId for the client view itself.
+            .lean()
+            .sort({ sessionDate: -1 });
+        console.log(`[getMySessions] Found ${sessions ? sessions.length : 0} sessions for CLIENT ${userId}`);
+    } else {
+        // Handle unknown roles appropriately
+        sessions = [];
+        console.log(`[getMySessions] Unknown role '${req.user.role}' for user ${userId}`);
+    }
+
+    // Ensure sessions is always an array before sending response
+    res.json(sessions || []);
 });
 
 // @desc    Get session by ID

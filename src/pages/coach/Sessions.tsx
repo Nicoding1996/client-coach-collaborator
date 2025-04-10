@@ -17,18 +17,21 @@ import { DatePicker } from '@/components/ui/date-picker'; // Import DatePicker f
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
 import { useWebSocket } from "@/contexts/WebSocketContext"; // Import WebSocket hook
-// Define Client type locally (or move to a shared types file)
-interface Client {
-  _id?: string;
-  id?: string;
+// Define ClientUser type for populated clientId field
+interface ClientUser {
+  _id: string; // User ID
   name: string;
   avatar?: string;
+  email?: string; // Include email if populated by backend
 }
+// Remove the separate Client interface if no longer needed elsewhere in this file
 
 export interface SessionType { // Export the interface
   _id: string; // Match backend data structure
-  clientId?: string; // Add clientId (might be needed for edit form) - make optional?
-  clientName?: string; // Make optional to handle backend data
+  // clientId now holds the populated User object
+  clientId: ClientUser | null; // Use ClientUser type, allow null if population fails
+  // removed clientName
+  // removed clientAvatar
   sessionDate: string; // Match backend property name
   startTime?: string; // Add startTime
   endTime?: string;   // Add endTime
@@ -37,7 +40,6 @@ export interface SessionType { // Export the interface
   type?: string; // Made optional
   location?: string; // Add location
   notes: string;
-  clientAvatar?: string; // Made optional
 }
 
 const CoachSessions = () => {
@@ -60,37 +62,22 @@ const CoachSessions = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch both sessions and clients concurrently
-        const [sessionsData, clientsData]: [SessionType[], Client[]] = await Promise.all([ // Type the responses
-          authAPI.getSessions(),
-          authAPI.getClients() // Assuming you have this function in authAPI
-        ]);
+        // Fetch only sessions, backend now populates clientId
+        const sessionsData: SessionType[] = await authAPI.getSessions();
+        console.log('[Coach Fetch] Raw sessionsData from API:', sessionsData);
 
-        // --- Data Augmentation ---
-        // Create a map for quick client lookup using the Client type
-        const clientsMap = new Map<string, Client>(
-           clientsData.map(client => [client._id || client.id || 'invalid-id', client]) // Use defined type, provide fallback key
-        );
-
+        // --- Process Sessions (Calculate Duration) ---
         const processedSessions = sessionsData.map(session => {
-              const client = session.clientId ? clientsMap.get(session.clientId) : undefined; // Safely get client
-              console.log(`[Data Augmentation] Session: ${session._id}, ClientID: ${session.clientId}, Found Client:`, client);
-
               // --- Add Duration Calculation Here ---
               let calculatedDuration: number | undefined = undefined;
-              // Ensure startTime and endTime exist and sessionDate is valid before calculating
               if (session.sessionDate && typeof session.startTime === 'string' && typeof session.endTime === 'string') {
                   try {
-                      // Use parseISO for the date part, combine with time strings
                       const baseDateStr = format(parseISO(session.sessionDate), 'yyyy-MM-dd');
                       const startDateTime = parse(`${baseDateStr} ${session.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
                       const endDateTime = parse(`${baseDateStr} ${session.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
-
                       if (!isNaN(startDateTime.getTime()) && !isNaN(endDateTime.getTime())) {
                           calculatedDuration = differenceInMinutes(endDateTime, startDateTime);
-                          if (calculatedDuration < 0) {
-                              calculatedDuration += 24 * 60; // Handle overnight
-                          }
+                          if (calculatedDuration < 0) calculatedDuration += 24 * 60;
                       }
                   } catch (parseError) {
                       console.error(`Error calculating duration for session ${session._id}:`, parseError);
@@ -98,16 +85,18 @@ const CoachSessions = () => {
               }
               // --- End Duration Calculation ---
 
+              // Return session with calculated duration. Client details are already populated.
               return {
                 ...session,
-                clientName: client ? client.name : 'Unknown Client',
-                clientAvatar: client ? client.avatar : undefined,
-                duration: calculatedDuration // Add the calculated duration
+                // Ensure clientId is at least null if not populated correctly
+                clientId: session.clientId || null,
+                duration: calculatedDuration
               };
             });
-        // --- End Data Augmentation ---
+        // --- End Processing ---
 
-        setSessions(processedSessions); // Set state with augmented data
+        console.log('[Coach Fetch] Processed sessions for state:', processedSessions);
+        setSessions(processedSessions); // Set state with processed data
 
       } catch (error) {
         console.error("Failed to fetch initial data:", error);
@@ -129,16 +118,18 @@ const CoachSessions = () => {
         console.log('[WS] Session Created:', newSession);
         // TODO: Potentially need data augmentation here if backend doesn't send full object
         // Assuming backend sends augmented data for now
+        // Assuming newSession received via WS has populated clientId
         setSessions(prev => [...prev, newSession]);
-        toast.info(`New session scheduled with ${newSession.clientName || 'client'}`);
+        toast.info(`New session scheduled with ${newSession.clientId?.name || 'client'}`);
       };
 
       const handleSessionUpdated = (updatedSession: SessionType) => {
         console.log('[WS] Session Updated:', updatedSession);
          // TODO: Potentially need data augmentation here if backend doesn't send full object
          // Assuming backend sends augmented data for now
+         // Assuming updatedSession received via WS has populated clientId
         setSessions(prev => prev.map(s => s._id === updatedSession._id ? updatedSession : s));
-         toast.info(`Session with ${updatedSession.clientName || 'client'} updated.`);
+         toast.info(`Session with ${updatedSession.clientId?.name || 'client'} updated.`);
       };
 
       const handleSessionDeleted = (data: { sessionId: string }) => {
@@ -352,7 +343,8 @@ const CoachSessions = () => {
             <DialogContent>
               {selectedSessionData && (
                 <div>
-                  <h2>{selectedSessionData.clientName}</h2>
+                  {/* Access name from populated clientId */}
+                  <h2>{selectedSessionData?.clientId?.name || 'Unknown Client'}</h2>
                   {/* Use standard format for date display */}
                   <p>{format(parseISO(selectedSessionData.sessionDate), 'MMM d, yyyy')} {selectedSessionData.startTime ? `• ${selectedSessionData.startTime}` : ''}</p>
                   <Textarea value={editedNotes} onChange={(e) => setEditedNotes(e.target.value)} />
@@ -398,11 +390,12 @@ const CoachSessions = () => {
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center">
                               <Avatar className="h-12 w-12">
-                                <AvatarImage src={session.clientAvatar} alt={session.clientName} />
-                                <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
+                                {/* Access avatar and name from populated clientId */}
+                                <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name} />
+                                <AvatarFallback>{getInitials(session.clientId?.name)}</AvatarFallback>
                               </Avatar>
                               <div className="ml-4">
-                                <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
+                                <h3 className="font-medium">{session.clientId?.name || 'Unknown Client'}</h3>
                                 <div className="flex items-center mt-1">
                                   <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
                                   {/* Updated display format */}
@@ -444,11 +437,12 @@ const CoachSessions = () => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex items-center">
                             <Avatar className="h-12 w-12">
-                              <AvatarImage src={session.clientAvatar} alt={session.clientName} />
-                              <AvatarFallback>{getInitials(session.clientName)}</AvatarFallback>
+                               {/* Access avatar and name from populated clientId */}
+                              <AvatarImage src={session.clientId?.avatar} alt={session.clientId?.name} />
+                              <AvatarFallback>{getInitials(session.clientId?.name)}</AvatarFallback>
                             </Avatar>
                             <div className="ml-4">
-                              <h3 className="font-medium">{session.clientName || 'Unknown Client'}</h3>
+                              <h3 className="font-medium">{session.clientId?.name || 'Unknown Client'}</h3>
                               <div className="flex items-center mt-1">
                                 <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
                                  {/* Updated display format */}
@@ -523,7 +517,8 @@ const CoachSessions = () => {
                     .map((session) => (
                       <div key={session._id} className="flex items-center justify-between border-b last:border-b-0 py-3">
                         <div>
-                          <p className="font-medium text-sm">{session.clientName || 'Unknown Client'}</p>
+                           {/* Access name from populated clientId */}
+                          <p className="font-medium text-sm">{session.clientId?.name || 'Unknown Client'}</p>
                           <p className="text-xs text-muted-foreground">
                              {session.startTime || 'N/A'} {session.duration ? `• ${session.duration} min` : ''} {/* Updated calendar display */}
                           </p>
