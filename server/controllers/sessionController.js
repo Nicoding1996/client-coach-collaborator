@@ -8,6 +8,7 @@ import { io, userSockets } from '../server.js'; // Import io and userSockets
 export const createSession = asyncHandler(async (req, res) => {
   // Destructure expected fields from req.body
   const { clientId, sessionDate, startTime, endTime, location, notes, status } = req.body; // Updated fields
+  console.log(`[createSession] Received clientId from form: ${clientId}`); // <-- ADD LOG
 
   // Basic validation
   if (!clientId || !sessionDate || !startTime || !endTime) {
@@ -28,8 +29,9 @@ export const createSession = asyncHandler(async (req, res) => {
     notes,
     status: status || 'Upcoming' // Default status
   });
-
-  const createdSession = await session.save();
+console.log(`[createSession] Saving session with clientId: ${session.clientId}`); // <-- ADD LOG
+const createdSession = await session.save();
+  // Removed duplicate declaration
 
   // Emit WebSocket event
   try {
@@ -100,6 +102,7 @@ export const updateSession = asyncHandler(async (req, res) => {
   // Allow updating specific fields like notes, status, date, duration etc.
   // Allow updating specific fields like notes, status, date, times, location etc.
   const { sessionDate, startTime, endTime, location, notes, status } = req.body; // Updated fields
+  console.log(`[updateSession] Received body for session ${req.params.id}:`, req.body); // <-- ADD LOG
 
   // Find session ensuring the logged-in user is the coach (usually only coach can update)
   const session = await Session.findOne({ _id: req.params.id, coachId: req.user._id });
@@ -113,6 +116,7 @@ export const updateSession = asyncHandler(async (req, res) => {
     if (notes !== undefined) session.notes = notes; // notes already existed, keeping it
     if (status !== undefined) session.status = status;
 
+    console.log(`[updateSession] Saving session ${session._id} with clientId: ${session.clientId}`); // <-- ADD LOG
     const updatedSession = await session.save();
 
     // Emit WebSocket event

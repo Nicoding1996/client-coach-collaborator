@@ -21,6 +21,7 @@ interface ScheduleSessionFormProps {
 interface Client {
   _id?: string;
   id?: string; // Allow for potential 'id' property
+  userId: string; // Add userId (should be required, linked User ID)
   name: string;
   avatar?: string; // Add optional avatar property
 }
@@ -91,15 +92,26 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
     }
 
     try {
+      // Find the full client object from state using the selected clientId (_id of client record)
+      const selectedClientObject = clients.find(c => (c._id || c.id) === clientId);
+
+      if (!selectedClientObject) {
+        setError("Selected client not found. Please refresh and try again.");
+        setLoading(false);
+        return;
+      }
+
       const sessionData = {
-       clientId,
-       sessionDate, // Pass Date object directly
-       startTime,
-       endTime,
-       location,
-       notes,
+        // Send the USER ID associated with the selected client record
+        clientId: selectedClientObject.userId,
+        sessionDate, // Pass Date object directly
+        startTime,
+        endTime,
+        location,
+        notes,
       };
-      console.log('Submitting sessionData:', sessionData);
+      // Add a log to verify
+      console.log('[Form Submit] Sending sessionData with USER ID as clientId:', sessionData);
       console.log('Submitting to API...'); // Log: Before API call
       let responseData;
       if (isEditing) {
@@ -145,10 +157,12 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
       const finalDuration = calculatedDuration; // Use calculated duration
       const finalType = responseData.type !== undefined ? responseData.type : (initialData?.type); // Keep optional
 
+      // Ensure selectedClientObject is available here as well
       const resultSession: SessionType = {
         _id: responseData._id || initialData!._id, // Need initialData._id if editing
-        clientId: clientId, // Use clientId from form state
-        clientName: clientName, // Use looked-up name based on form state clientId
+        // Use the User ID for the optimistic update object as well
+        clientId: selectedClientObject.userId,
+        clientName: clientName, // This should be correct based on selectedClientObject
         sessionDate: finalSessionDate,
         startTime: finalStartTime,
         endTime: finalEndTime,
@@ -156,7 +170,7 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
         duration: finalDuration, // Assign optional duration
         type: finalType,         // Assign optional type
         location: finalLocation,
-        notes: notes, // *** Use notes directly from form state ***
+        notes: notes, // Use notes directly from form state
         clientAvatar: clientAvatar,
       };
 
