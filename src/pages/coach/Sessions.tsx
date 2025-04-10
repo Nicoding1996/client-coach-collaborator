@@ -26,16 +26,21 @@ interface ClientUser {
 }
 // Remove the separate Client interface if no longer needed elsewhere in this file
 
+// Define CoachUser type (similar to ClientUser, could be combined if identical)
+interface CoachUser {
+    _id: string;
+    name: string;
+    avatar?: string;
+}
+
 export interface SessionType { // Export the interface
   _id: string; // Match backend data structure
-  // clientId now holds the populated User object
-  clientId: ClientUser | null; // Use ClientUser type, allow null if population fails
-  // removed clientName
-  // removed clientAvatar
+  clientId: ClientUser | null; // Populated client User object
+  coachId?: CoachUser | null; // Add populated coach User object (optional/null for safety)
   sessionDate: string; // Match backend property name
   startTime?: string; // Add startTime
   endTime?: string;   // Add endTime
-  time?: string; // Made optional - maybe remove if startTime/endTime cover it? Keep for now.
+  time?: string; // Made optional
   duration?: number; // Made optional
   type?: string; // Made optional
   location?: string; // Add location

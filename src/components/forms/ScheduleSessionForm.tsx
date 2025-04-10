@@ -52,20 +52,36 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
   }, []);
 
   // Effect to pre-fill form when editing (initialData changes)
-  useEffect(() => {
-    if (initialData) {
-      // Need to find the clientId from the initialData if it's not directly available
-      // Assuming initialData might have clientId directly or nested within client object
-      // Rely on the clientId property from the SessionType interface
-      const initialClientId = initialData.clientId;
-      setClientId(initialClientId || ''); // Set to empty string if clientId is missing/undefined in initialData
+   useEffect(() => {
+    // Wait until clients are loaded before trying to match
+    if (initialData && clients.length > 0) {
+      // initialData.clientId is the populated User object (ClientUser | null)
+      const userToFind = initialData.clientId; // This is the nested User object or null
+      let clientRecordIdToSet = ''; // Default to empty string
+
+      if (userToFind?._id) { // Check if user object and its _id exist
+        // Find the Client record whose userId matches the User ID from initialData
+        const clientRecord = clients.find(c => c.userId === userToFind._id);
+        if (clientRecord) {
+          // Set the clientId state to the Client record's _id (or id) for the dropdown
+          clientRecordIdToSet = clientRecord._id || clientRecord.id || '';
+        } else {
+          console.warn(`[Form Edit] Couldn't find matching client record in loaded clients for user ID: ${userToFind._id}`);
+          // Keep clientRecordIdToSet as ''
+        }
+      } else {
+         console.warn("[Form Edit] initialData.clientId (User object) is null or missing _id.");
+         // Keep clientRecordIdToSet as ''
+      }
+      setClientId(clientRecordIdToSet);
+
       setSessionDate(initialData.sessionDate ? new Date(initialData.sessionDate) : undefined);
       setStartTime(initialData.startTime || '');
       setEndTime(initialData.endTime || '');
       setLocation(initialData.location || '');
       setNotes(initialData.notes || '');
-    } else {
-      // Reset form if initialData is null/undefined (e.g., switching from edit to add)
+    } else if (!initialData) {
+      // Reset form if initialData is null/undefined (when switching from edit to add)
       setClientId('');
       setSessionDate(undefined);
       setStartTime('');
@@ -73,7 +89,8 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
       setLocation('');
       setNotes('');
     }
-  }, [initialData]);
+    // Depend on initialData AND clients array being loaded
+  }, [initialData, clients]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     const isEditing = !!initialData; // Check if we are editing
@@ -157,22 +174,35 @@ const ScheduleSessionForm: React.FC<ScheduleSessionFormProps> = ({ onSuccess, on
       const finalDuration = calculatedDuration; // Use calculated duration
       const finalType = responseData.type !== undefined ? responseData.type : (initialData?.type); // Keep optional
 
-      // Ensure selectedClientObject is available here as well
+      // Construct the resultSession with the nested clientId object
+      // Ensure selectedClientObject (Client record) and responseData (API response) are used correctly
+      // Removed duplicate declarations of finalDuration and finalType below
+
       const resultSession: SessionType = {
-        _id: responseData._id || initialData!._id, // Need initialData._id if editing
-        // Use the User ID for the optimistic update object as well
-        clientId: selectedClientObject.userId,
-        clientName: clientName, // This should be correct based on selectedClientObject
+        _id: responseData._id || initialData!._id,
+        // --- Create nested clientId object ---
+        clientId: selectedClientObject ? {
+           _id: selectedClientObject.userId, // The actual User ID from the Client record
+           name: selectedClientObject.name,  // Name from the Client record
+           avatar: selectedClientObject.avatar // Avatar from the Client record
+           // email: selectedClientObject.email // Add email if available in Client interface and needed
+        } : null, // Or handle error appropriately if selectedClientObject is somehow null
+        // --- End nested object ---
+        // clientName is removed (use resultSession.clientId.name)
+        // clientAvatar is removed (use resultSession.clientId.avatar)
         sessionDate: finalSessionDate,
         startTime: finalStartTime,
         endTime: finalEndTime,
-        // time: finalStartTime, // Keep time optional or remove if not needed
-        duration: finalDuration, // Assign optional duration
-        type: finalType,         // Assign optional type
+        duration: finalDuration, // Use calculated duration
+        type: finalType,
         location: finalLocation,
         notes: notes, // Use notes directly from form state
-        clientAvatar: clientAvatar,
+        // Include coachId if needed by SessionType and available
+        // Assuming responseData might contain coachId or use initialData if editing
+        coachId: responseData.coachId || initialData?.coachId || undefined
       };
+
+      console.log('[Form Save] Passing populated resultSession to onSuccess:', resultSession);
 
       // Log removed
       onSuccess(resultSession); // Pass the constructed object
