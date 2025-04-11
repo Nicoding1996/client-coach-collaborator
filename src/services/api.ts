@@ -333,6 +333,57 @@ export const authAPI = {
     }
   },
 
+  findOrCreateConversation: async (clientUserId: string) => {
+    try {
+      console.log(`[API] Sending findOrCreateConversation request for clientUserId: ${clientUserId}`);
+      const response = await api.post('/conversations/findOrCreate', { clientUserId });
+      // Assuming the API returns the conversation object
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Find/Create conversation error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error:', error);
+      }
+      throw error;
+    }
+  },
+
+  getConversations: async () => {
+    try {
+      console.log(`[API] Fetching conversations`);
+      const response = await api.get('/conversations');
+      return response.data; // Expecting an array of conversation objects
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Get conversations error:', error.response?.data || error.message);
+      } else {
+        console.error('Unexpected error fetching conversations:', error);
+      }
+      throw error;
+    }
+  },
+
+  getMessages: async (conversationId: string) => {
+    if (!conversationId) {
+        console.error("[API] getMessages called with no conversationId");
+        // Return empty array or throw error, depending on desired handling
+        return [];
+    }
+    try {
+      console.log(`[API] Fetching messages for conversationId: ${conversationId}`);
+      const response = await api.get(`/conversations/${conversationId}/messages`);
+      return response.data; // Expecting an array of message objects
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error(`Get messages error for ${conversationId}:`, error.response?.data || error.message);
+      } else {
+        console.error(`Unexpected error fetching messages for ${conversationId}:`, error);
+      }
+      throw error;
+    }
+  },
+
   generateInviteLink: async () => {
     try {
       const response = await api.post('/invites/link');

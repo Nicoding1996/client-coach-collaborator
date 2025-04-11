@@ -90,7 +90,8 @@ const App = () => {
                 <Route index element={<CoachDashboard />} />
                 <Route path="clients" element={<CoachClients />} />
                 <Route path="sessions" element={<CoachSessions />} />
-                <Route path="messages" element={<CoachMessages />} />
+                {/* Add optional conversationId param */}
+                <Route path="messages/:conversationId?" element={<CoachMessages />} />
                 <Route path="profile" element={<CoachProfile />} />
                 <Route path="invite" element={<CoachInvite />} />
                 <Route path="resources" element={<CoachResources />} />
