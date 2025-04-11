@@ -1,6 +1,8 @@
 import asyncHandler from 'express-async-handler';
 import Invoice from '../models/Invoice.js'; // Use import and .js
-import { generateInvoiceNumber } from '../utils/invoiceUtils.js'; // Assuming you create a utility for this
+// Remove old import if invoiceUtils.js is no longer needed, or keep if it has other functions
+// import { generateInvoiceNumber } from '../utils/invoiceUtils.js';
+import getNextSequenceValue from '../utils/getNextSequence.js'; // Import the new helper
 
 // @desc    Create a new invoice
 // @route   POST /api/invoices
@@ -28,13 +30,16 @@ export const createInvoice = asyncHandler(async (req, res) => {
       throw new Error('Invoice amount cannot be zero');
   }
 
-  const invoiceNumber = await generateInvoiceNumber(); // Implement this utility function
+  // Get the next sequence number and format it
+  const nextInvNum = await getNextSequenceValue('invoiceNumber'); // Use 'invoiceNumber' as the sequence name
+  const formattedInvNum = `INV-${String(nextInvNum).padStart(4, '0')}`; // Format to INV-000X
+  console.log(`[CreateInvoice BE] Generated invoiceNumber: ${formattedInvNum}`); // Log generated number
 
   const invoice = new Invoice({
     coachId: req.user._id, // Assign logged-in coach
     clientId, // Should be the User ID now
-    invoiceNumber,
-    issueDate, // Add issueDate if missing from original schema usage
+    invoiceNumber: formattedInvNum, // Use the generated number
+    issueDate,
     dueDate,
     amount: calculatedAmount,
     lineItems,
@@ -59,16 +64,41 @@ export const createInvoice = asyncHandler(async (req, res) => {
 // @route   GET /api/invoices
 // @access  Private
 export const getMyInvoices = asyncHandler(async (req, res) => {
-  // Add filtering/sorting/pagination later if needed
-  // Ensure lean() is used if not modifying docs
-  const invoices = await Invoice.find({ coachId: req.user._id })
-                                .populate('clientId', 'name email avatar') // Populate client info including avatar
-                                .lean() // Add lean for performance
-                                .sort({ issueDate: -1 }); // Sort by issue date descending
+    console.log(`[getMyInvoices] User ID making request: ${req.user?._id}, Role: ${req.user?.role}`);
+    const userId = req.user._id;
+    let invoices;
 
-  console.log('[GetInvoices Controller] Invoices AFTER populate:', JSON.stringify(invoices, null, 2)); // Log the result before sending
+    if (!req.user || !req.user.role) {
+        console.error(`[getMyInvoices] User role not found for user ${userId}`);
+        return res.status(403).json({ message: 'User role is required to fetch invoices.' });
+    }
 
-  res.json(invoices);
+    if (req.user.role === 'coach') {
+        // Coach: Find invoices where they are the coach, populate CLIENT details
+        console.log(`[getMyInvoices] Fetching invoices for COACH ${userId}`);
+        invoices = await Invoice.find({ coachId: userId })
+            .populate('clientId', '_id name avatar email') // Populate User details into clientId
+            .lean()
+            .sort({ issueDate: -1 });
+        console.log(`[getMyInvoices] Found ${invoices ? invoices.length : 0} invoices for COACH ${userId}`);
+
+    } else if (req.user.role === 'client') {
+        // Client: Find invoices where they are the client, populate COACH details
+        console.log(`[getMyInvoices] Fetching invoices for CLIENT ${userId}`);
+        invoices = await Invoice.find({ clientId: userId }) // Find by clientId (User ID)
+            .populate('coachId', '_id name avatar') // Populate coach details
+            .lean()
+            .sort({ issueDate: -1 });
+        console.log(`[getMyInvoices] Found ${invoices ? invoices.length : 0} invoices for CLIENT ${userId}`);
+
+    } else {
+        // Handle unknown roles
+        console.log(`[getMyInvoices] Unknown role '${req.user.role}' for user ${userId}`);
+        invoices = [];
+    }
+
+    console.log('[GetInvoices Controller] Invoices AFTER populate and role check:', JSON.stringify(invoices, null, 2));
+    res.json(invoices || []); // Ensure an array is always returned
 });
 
 // @desc    Get invoice by ID

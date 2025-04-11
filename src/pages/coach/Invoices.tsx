@@ -22,6 +22,15 @@ interface ClientUser {
 }
 
 // Corrected InvoiceType expecting populated clientId
+// Define ClientUser type for populated clientId field
+interface ClientUser {
+  _id: string; // User ID
+  name: string;
+  avatar?: string;
+  email?: string; // Include email if populated by backend
+}
+
+// Corrected InvoiceType expecting populated clientId
 interface InvoiceType {
   _id: string;
   invoiceNumber?: string;
@@ -60,32 +69,34 @@ const CoachInvoices = () => {
       const invoicesData = await authAPI.getInvoices();
       console.log("[Fetch] Raw Invoices from API (populated):", invoicesData);
 
-      // Perform a safe mapping to ensure the data conforms to InvoiceType
-      // Remove 'any' type and use explicit mapping
-      const processedInvoices: InvoiceType[] = invoicesData.map((inv) => {
-        // Basic validation or default values for the populated clientId object
-        const clientIdPopulated: ClientUser | null = (inv.clientId && typeof inv.clientId === 'object' && inv.clientId._id)
-          ? {
-              _id: inv.clientId._id, // Ensure _id exists
-              name: inv.clientId.name || 'Unknown Client', // Provide default name
-              avatar: inv.clientId.avatar,
-              email: inv.clientId.email
-            }
-          : null; // Set to null if clientId is not a populated object or lacks _id
+      // Explicitly map and type the incoming data to match InvoiceType
+      // Use 'any' for the input `inv` if the exact API response type isn't defined elsewhere,
+      // but ensure the output of the map conforms to InvoiceType.
+      const processedInvoices: InvoiceType[] = invoicesData.map((inv): InvoiceType => { // Remove : any
+          const clientIdPopulated: ClientUser | null = (inv.clientId && typeof inv.clientId === 'object' && inv.clientId._id)
+              ? {
+                  _id: inv.clientId._id,
+                  name: inv.clientId.name || 'Unknown Client', // Fallback name
+                  avatar: inv.clientId.avatar,
+                  email: inv.clientId.email
+              }
+              : null; // Set to null if not populated correctly
 
-        // Construct the final InvoiceType object safely
-        return {
-          _id: inv._id || '', // Ensure _id exists
-          invoiceNumber: inv.invoiceNumber,
-          clientId: clientIdPopulated, // Use the validated/defaulted object or null
-          issueDate: inv.issueDate || '',
-          dueDate: inv.dueDate || '',
-          amount: inv.amount || 0,
-          status: inv.status || 'Unknown',
-          lineItems: inv.lineItems || [],
-          notes: inv.notes || ''
-        };
-      });
+          // Return an object strictly conforming to InvoiceType
+          return {
+              _id: inv._id, // Assuming _id always exists
+              invoiceNumber: inv.invoiceNumber,
+              clientId: clientIdPopulated, // Assign the processed object or null
+              issueDate: inv.issueDate,
+              dueDate: inv.dueDate,
+              amount: inv.amount,
+              status: inv.status,
+              lineItems: inv.lineItems,
+              notes: inv.notes
+          };
+      // Filter out any potential malformed entries if necessary, though the map should handle defaults
+      }).filter(inv => !!inv._id); // Ensure _id is present
+
       console.log("[Fetch] Processed Invoices for state (safe map):", processedInvoices);
       setInvoices(processedInvoices);
 
