@@ -1,80 +1,134 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react"; // Import useEffect, useMemo
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Download, FileText, Filter } from "lucide-react";
+import { Search, Download, FileText, Filter, CreditCard, Plus, Eye, ArrowUpDown } from "lucide-react"; // Consolidate Lucide imports
+import { authAPI } from "@/services/api"; // Import API service
+import { useWebSocket } from "@/contexts/WebSocketContext"; // Import WebSocket hook
+import { toast } from 'sonner'; // Import toast for WS notifications
+// Remove duplicate import
 
-// Mock invoice data
-const invoices = [
-  {
-    id: "INV-001",
-    date: "2023-05-10",
-    amount: 150.00,
-    status: "paid",
-    description: "Life Coaching Session - May",
-    coach: "Dr. Jane Smith"
-  },
-  {
-    id: "INV-002",
-    date: "2023-06-15",
-    amount: 150.00,
-    status: "paid",
-    description: "Life Coaching Session - June",
-    coach: "Dr. Jane Smith"
-  },
-  {
-    id: "INV-003",
-    date: "2023-07-20",
-    amount: 250.00,
-    status: "paid",
-    description: "Career Development Package",
-    coach: "Dr. Jane Smith"
-  },
-  {
-    id: "INV-004",
-    date: "2023-08-25",
-    amount: 150.00,
-    status: "unpaid",
-    description: "Life Coaching Session - August",
-    coach: "Dr. Jane Smith"
-  },
-  {
-    id: "INV-005",
-    date: "2023-09-30",
-    amount: 350.00,
-    status: "unpaid",
-    description: "Leadership Coaching Package",
-    coach: "Robert Johnson"
-  },
-];
+// Define InvoiceType and related types
+interface CoachUser { // For populated coachId
+  _id: string;
+  name: string;
+  avatar?: string;
+}
+
+interface InvoiceType {
+  _id: string;
+  invoiceNumber?: string;
+  coachId: CoachUser | null; // Expect populated Coach object
+  clientId: string; // Client's own User ID (string)
+  issueDate: string;
+  dueDate: string;
+  amount: number;
+  status: string; // e.g., 'Draft', 'Pending', 'Paid', 'Overdue', 'Cancelled'
+  lineItems?: { description: string; quantity: number; price: number }[];
+  notes: string;
+}
+
+// Removed Mock Data
 
 const ClientInvoices = () => {
+  const [invoices, setInvoices] = useState<InvoiceType[]>([]); // Use InvoiceType
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const { socket } = useWebSocket(); // Get socket
+
+  // Fetch Invoices Effect
+  useEffect(() => {
+    const fetchClientInvoices = async () => {
+      setLoading(true);
+      try {
+        // Clients fetch their own invoices, API handles filtering
+        const data = await authAPI.getInvoices();
+        console.log('[Client Invoices] API Response:', data);
+        // Assuming backend populates coachId correctly
+        setInvoices(data as InvoiceType[]); // Use type assertion if confident
+      } catch (error) {
+        console.error("Failed to fetch client invoices:", error);
+        // toast.error("Failed to load your invoices.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClientInvoices();
+  }, []); // Run only on mount
+
+  // WebSocket Listeners Effect
+  useEffect(() => {
+    if (socket) {
+      console.log('[WS Client Invoices] Setting up listeners...');
+
+      const handleInvoiceCreated = (newInvoice: InvoiceType) => {
+        console.log('[WS Client Invoices] Invoice Created:', newInvoice);
+        setInvoices(prev => [...prev, newInvoice]);
+        toast.info(`New invoice #${newInvoice.invoiceNumber || newInvoice._id} received.`);
+      };
+
+      const handleInvoiceUpdated = (updatedInvoice: InvoiceType) => {
+        console.log('[WS Client Invoices] Invoice Updated:', updatedInvoice);
+        setInvoices(prev => prev.map(inv => inv._id === updatedInvoice._id ? updatedInvoice : inv));
+        toast.info(`Invoice #${updatedInvoice.invoiceNumber || updatedInvoice._id} updated.`);
+      };
+
+      const handleInvoiceDeleted = (data: { invoiceId: string }) => {
+        console.log('[WS Client Invoices] Invoice Deleted:', data.invoiceId);
+        setInvoices(prev => prev.filter(inv => inv._id !== data.invoiceId));
+        toast.info(`An invoice was deleted.`);
+      };
+
+      // Replace with actual backend event names if different
+      socket.on('invoice_created', handleInvoiceCreated);
+      socket.on('invoice_updated', handleInvoiceUpdated);
+      socket.on('invoice_deleted', handleInvoiceDeleted);
+
+      return () => {
+        console.log('[WS Client Invoices] Cleaning up listeners...');
+        socket.off('invoice_created', handleInvoiceCreated);
+        socket.off('invoice_updated', handleInvoiceUpdated);
+        socket.off('invoice_deleted', handleInvoiceDeleted);
+      };
+    } else {
+      console.log('[WS Client Invoices] Socket not available yet.');
+    }
+  }, [socket]);
+
+  // Filter invoices based on search query (useMemo for efficiency)
+  const filteredInvoices = useMemo(() => {
+      return invoices.filter((invoice) => {
+        const lowerCaseQuery = searchQuery.toLowerCase();
+        // Use optional chaining and check populated coachId.name
+        return (
+          (invoice.invoiceNumber?.toLowerCase() || '').includes(lowerCaseQuery) ||
+          (invoice.coachId?.name?.toLowerCase() || '').includes(lowerCaseQuery) ||
+          (invoice.notes?.toLowerCase() || '').includes(lowerCaseQuery) || // Added notes search
+          (invoice.lineItems?.some(item => item.description?.toLowerCase().includes(lowerCaseQuery)) || false) // Added line item search
+        );
+      });
+  }, [invoices, searchQuery]);
   
-  // Filter invoices based on search query
-  const filteredInvoices = invoices.filter((invoice) => {
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    return (
-      invoice.id.toLowerCase().includes(lowerCaseQuery) ||
-      invoice.description.toLowerCase().includes(lowerCaseQuery) ||
-      invoice.coach.toLowerCase().includes(lowerCaseQuery)
-    );
-  });
-  
-  // Get paid and unpaid invoices
-  const paidInvoices = filteredInvoices.filter(invoice => invoice.status === "paid");
-  const unpaidInvoices = filteredInvoices.filter(invoice => invoice.status === "unpaid");
-  
-  // Calculate total paid and unpaid amounts
-  const totalPaid = paidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0);
-  const totalUnpaid = unpaidInvoices.reduce((sum, invoice) => sum + invoice.amount, 0);
+  // Calculate summaries using useMemo
+  const { paidInvoices, unpaidInvoices, totalPaid, totalUnpaid } = useMemo(() => {
+    const paid = filteredInvoices.filter(inv => inv.status?.toLowerCase() === "paid");
+    // Define unpaid more broadly (e.g., Pending, Overdue)
+    const unpaid = filteredInvoices.filter(inv => inv.status?.toLowerCase() !== "paid" && inv.status?.toLowerCase() !== "cancelled" && inv.status?.toLowerCase() !== "draft");
+    const paidTotal = paid.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    const unpaidTotal = unpaid.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    return { paidInvoices: paid, unpaidInvoices: unpaid, totalPaid: paidTotal, totalUnpaid: unpaidTotal };
+  }, [filteredInvoices]);
   
   return (
     <div className="space-y-6 animate-fadeIn">
+      {loading ? (
+         <p>Loading invoices...</p>
+      ) : (
+        // Ensure the content is wrapped correctly in a fragment or div
+        <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Invoices</h1>
@@ -150,15 +204,21 @@ const ClientInvoices = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                        <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{invoice.description}</TableCell>
-                        <TableCell>{invoice.coach}</TableCell>
-                        <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                    filteredInvoices.map((invoice: InvoiceType) => ( // Add type
+                      // Use _id for key
+                      <TableRow key={invoice._id}>
+                        {/* Use invoiceNumber or _id */}
+                        <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                        {/* Use issueDate */}
+                        <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
+                        {/* Use notes or line item description */}
+                        <TableCell>{invoice.notes || invoice.lineItems?.[0]?.description || 'N/A'}</TableCell>
+                        {/* Use populated coach name */}
+                        <TableCell>{invoice.coachId?.name || 'N/A'}</TableCell>
+                        <TableCell>${(invoice.amount || 0).toFixed(2)}</TableCell>
                         <TableCell>
-                          <Badge variant={invoice.status === "paid" ? "success" : "default"}>
+                          {/* Use status for badge variant logic */}
+                          <Badge variant={invoice.status?.toLowerCase() === "paid" ? "success" : invoice.status?.toLowerCase() === "overdue" ? "destructive" : "outline"}>
                             {invoice.status}
                           </Badge>
                         </TableCell>
@@ -200,15 +260,16 @@ const ClientInvoices = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    unpaidInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                        <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{invoice.description}</TableCell>
-                        <TableCell>{invoice.coach}</TableCell>
-                        <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                    unpaidInvoices.map((invoice: InvoiceType) => ( // Add type
+                      <TableRow key={invoice._id}>
+                        <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                        <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{invoice.notes || invoice.lineItems?.[0]?.description || 'N/A'}</TableCell>
+                        <TableCell>{invoice.coachId?.name || 'N/A'}</TableCell>
+                        <TableCell>${(invoice.amount || 0).toFixed(2)}</TableCell>
                         <TableCell>
-                          <Badge>unpaid</Badge>
+                          {/* Use status, Badge variant might need adjustment */}
+                          <Badge variant={invoice.status?.toLowerCase() === "overdue" ? "destructive" : "outline"}>{invoice.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">
@@ -248,15 +309,15 @@ const ClientInvoices = () => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paidInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
-                        <TableCell className="font-medium">{invoice.id}</TableCell>
-                        <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{invoice.description}</TableCell>
-                        <TableCell>{invoice.coach}</TableCell>
-                        <TableCell>${invoice.amount.toFixed(2)}</TableCell>
+                    paidInvoices.map((invoice: InvoiceType) => ( // Add type
+                      <TableRow key={invoice._id}>
+                        <TableCell className="font-medium">{invoice.invoiceNumber || invoice._id}</TableCell>
+                        <TableCell>{new Date(invoice.issueDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{invoice.notes || invoice.lineItems?.[0]?.description || 'N/A'}</TableCell>
+                        <TableCell>{invoice.coachId?.name || 'N/A'}</TableCell>
+                        <TableCell>${(invoice.amount || 0).toFixed(2)}</TableCell>
                         <TableCell>
-                          <Badge variant="success">paid</Badge>
+                          <Badge variant="success">{invoice.status}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm">
@@ -273,6 +334,8 @@ const ClientInvoices = () => {
           </Card>
         </TabsContent>
       </Tabs>
+        </> // Close the fragment for the non-loading state
+      )} {/* Close loading check */}
     </div>
   );
 };
